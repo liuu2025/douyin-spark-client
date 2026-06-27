@@ -26,18 +26,38 @@
     <div class="content-panel">
       <div class="panel-body">
         <div class="filter-bar">
-          <el-input
-            v-model.trim="filters.owner_public_uid"
+          <el-select
+            v-model="filters.owner_public_uid"
+            allow-create
             clearable
-            placeholder="归属账户ID"
-            @keyup.enter="search"
-          />
-          <el-input
-            v-model.trim="filters.douyin_id"
+            default-first-option
+            filterable
+            placeholder="归属账号ID"
+            @change="handleOwnerFilterChange"
+          >
+            <el-option
+              v-for="option in ownerFilterOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+          <el-select
+            v-model="filters.douyin_id"
+            allow-create
             clearable
+            default-first-option
+            filterable
             placeholder="抖音号"
-            @keyup.enter="search"
-          />
+            @change="search"
+          >
+            <el-option
+              v-for="option in douyinFilterOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
           <el-select v-model="filters.login_state" clearable placeholder="登录态">
             <el-option label="登录正常" value="ok" />
             <el-option label="登录失效" value="not_logged_in" />
@@ -317,6 +337,7 @@ import {
 } from '@/api/adminDouyin'
 import { ApiError, errorText } from '@/api/http'
 import { listAdminScheduleSlots } from '@/api/schedule'
+import { listAdminUsers } from '@/api/adminUsers'
 import type { SendRunQuery } from '@/api/sendTasks'
 import type { DouyinAccount, LoginState, SendScheduleSlot, SendTask } from '@/api/types'
 import SendRunRecordsPanel from '@/components/SendRunRecordsPanel.vue'
@@ -352,6 +373,15 @@ const detailRunFilterFields: Array<'task_id' | 'slot_id' | 'error_code'> = [
   'error_code',
 ]
 
+interface FilterOption {
+  label: string
+  value: string
+  owner_public_uid?: string
+}
+
+const allAccountOptions = ref<FilterOption[]>([])
+const ownerFilterOptions = ref<FilterOption[]>([])
+
 const filters = reactive({
   owner_public_uid: '',
   douyin_id: '',
@@ -381,6 +411,12 @@ const redeemOwnerText = computed(() => {
   return nickname ? `${publicUid} / ${nickname}` : publicUid
 })
 
+const douyinFilterOptions = computed(() => {
+  const ownerPublicUID = filters.owner_public_uid.trim()
+  if (!ownerPublicUID) return allAccountOptions.value
+  return allAccountOptions.value.filter((option) => option.owner_public_uid === ownerPublicUID)
+})
+
 const detailRunFilterOptions = computed(() => ({
   task_id: tasks.value.map((task) => ({
     value: task.id || task.task_id || '',
@@ -396,8 +432,8 @@ function requestParams(): AdminDouyinAccountParams {
   return {
     page: pager.page,
     page_size: pager.pageSize,
-    owner_public_uid: filters.owner_public_uid || undefined,
-    douyin_id: filters.douyin_id || undefined,
+    owner_public_uid: filters.owner_public_uid.trim() || undefined,
+    douyin_id: filters.douyin_id.trim() || undefined,
     status: filters.status || undefined,
     login_state: filters.login_state || undefined,
     polling_entitlement_status: filters.polling_entitlement_status || undefined,
@@ -412,11 +448,68 @@ async function loadAccounts() {
     pager.total = data.total
     pager.page = data.page
     pager.pageSize = data.page_size
+    addAccountOptions(data.items)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
     loading.value = false
   }
+}
+
+async function loadFilterOptions() {
+  try {
+    const [users, accountList] = await Promise.all([
+      listAdminUsers({ page: 1, page_size: 200 }),
+      listAdminDouyinAccounts({ page: 1, page_size: 200 }),
+    ])
+    ownerFilterOptions.value = users.items.map((user) => ({
+      value: user.public_uid,
+      label: user.nickname ? `${user.public_uid} / ${user.nickname}` : user.public_uid,
+    }))
+    addAccountOptions(accountList.items)
+  } catch (error) {
+    ElMessage.error(errorText(error))
+  }
+}
+
+function addAccountOptions(items: DouyinAccount[]) {
+  const options = items.map((account) => ({
+    value: account.douyin_id,
+    label: account.profile_nickname
+      ? `${account.douyin_id} / ${account.profile_nickname}`
+      : account.douyin_id,
+    owner_public_uid: account.owner_public_uid,
+  }))
+  allAccountOptions.value = mergeFilterOptions([...allAccountOptions.value, ...options])
+}
+
+function mergeFilterOptions(options: FilterOption[]) {
+  const seen = new Set<string>()
+  const merged: FilterOption[] = []
+  for (const option of options) {
+    const value = String(option.value || '').trim()
+    if (!value || seen.has(value)) continue
+    const ownerPublicUID = String(option.owner_public_uid || '').trim()
+    seen.add(value)
+    merged.push({
+      ...option,
+      value,
+      label: option.label || value,
+      owner_public_uid: ownerPublicUID || undefined,
+    })
+  }
+  return merged
+}
+
+async function handleOwnerFilterChange() {
+  filters.owner_public_uid = filters.owner_public_uid.trim()
+  if (
+    filters.douyin_id &&
+    !douyinFilterOptions.value.some((option) => option.value === filters.douyin_id)
+  ) {
+    filters.douyin_id = ''
+  }
+  await search()
 }
 
 async function search() {
@@ -742,6 +835,7 @@ function groupRuleModeText(mode?: string) {
 
 onMounted(() => {
   void loadAccounts()
+  void loadFilterOptions()
   void loadRunFilterSlots()
 })
 </script>

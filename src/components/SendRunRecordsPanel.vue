@@ -155,11 +155,16 @@
       </el-table-column>
       <el-table-column
         v-if="showGlobalColumns"
-        prop="owner_user_id"
-        label="归属用户"
+        label="归属账号"
         min-width="180"
-        show-overflow-tooltip
-      />
+      >
+        <template #default="{ row }">
+          <div class="run-owner-cell">
+            <strong>{{ ownerPublicUID(row) || '-' }}</strong>
+            <span v-if="ownerNickname(row)">{{ ownerNickname(row) }}</span>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column
         v-if="showSlotColumn"
         prop="slot_id"
@@ -387,6 +392,31 @@ function filterDouyinOptions(options: RunFilterOption[]) {
   })
 }
 
+function ownerPublicUID(run: SendRun) {
+  const directUID = String(run.owner_public_uid || '').trim()
+  if (directUID) return directUID
+  const douyinID = String(run.douyin_id || '').trim()
+  if (!douyinID) return ''
+  return (
+    mergeOptions(props.filterOptions?.douyin_id || []).find((option) => option.value === douyinID)
+      ?.owner_public_uid || ''
+  )
+}
+
+function ownerNickname(run: SendRun) {
+  const publicUID = ownerPublicUID(run)
+  if (!publicUID) return ''
+  const option = mergeOptions(props.filterOptions?.owner_public_uid || []).find(
+    (item) => item.value === publicUID,
+  )
+  if (!option) return ''
+  const parts = option.label
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  return parts.length > 1 ? parts.slice(1).join(' / ') : ''
+}
+
 async function reloadFirstPage() {
   pager.page = 1
   await loadRuns()
@@ -606,6 +636,24 @@ defineExpose({ loadRuns, reloadFirstPage })
 
 .run-table :deep(.cell) {
   white-space: nowrap;
+}
+
+.run-owner-cell {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.run-owner-cell strong,
+.run-owner-cell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-owner-cell span {
+  color: var(--app-text-muted);
+  font-size: 12px;
 }
 
 @media (max-width: 640px) {
