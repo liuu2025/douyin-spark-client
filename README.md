@@ -1,4 +1,4 @@
-﻿# douyin-spark-client
+# douyin-spark-client
 
 `douyin-spark-client` 是 `douyin-spark` 的浏览器控制台前端，用于普通用户和管理员通过浏览器管理客户端账号、抖音号、远程浏览器登录、登录状态、发送任务、全局发送轮次、运行记录和管理员功能。
 
@@ -180,6 +180,7 @@ Dockerfile.deploy
 
 ## 更多说明
 
+- [更新日志](CHANGELOG.md)
 - [前端架构说明](frontend-docs/前端架构说明.md)
 - [接口接入说明](frontend-docs/接口接入说明.md)
 - [后端启动与客户端接入备忘](frontend-docs/后端启动与客户端接入备忘.md)
