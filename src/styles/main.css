@@ -1,0 +1,771 @@
+:root {
+  --app-bg: #f5f7fb;
+  --app-surface: #ffffff;
+  --app-surface-soft: #f9fafb;
+  --app-surface-hover: #eef6ff;
+  --app-border: #e5e7eb;
+  --app-text: #111827;
+  --app-text-body: #1f2937;
+  --app-text-muted: #6b7280;
+  --app-danger: #dc2626;
+  color: #1f2937;
+  background: #f5f7fb;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+:root.dark {
+  --app-bg: #0f172a;
+  --app-surface: #111827;
+  --app-surface-soft: #1f2937;
+  --app-surface-hover: #172554;
+  --app-border: #334155;
+  --app-text: #f8fafc;
+  --app-text-body: #e5e7eb;
+  --app-text-muted: #94a3b8;
+  --app-danger: #f87171;
+  color: var(--app-text-body);
+  background: var(--app-bg);
+  color-scheme: dark;
+
+  --el-bg-color: var(--app-surface);
+  --el-bg-color-page: var(--app-bg);
+  --el-bg-color-overlay: #111827;
+  --el-border-color: var(--app-border);
+  --el-border-color-light: #475569;
+  --el-border-color-lighter: #334155;
+  --el-text-color-primary: var(--app-text);
+  --el-text-color-regular: var(--app-text-body);
+  --el-text-color-secondary: var(--app-text-muted);
+  --el-fill-color: #1f2937;
+  --el-fill-color-light: #243044;
+  --el-fill-color-lighter: #172033;
+  --el-fill-color-blank: var(--app-surface);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--app-bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.page-title {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.page-subtitle {
+  margin: 6px 0 0;
+  color: var(--app-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.content-panel {
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.panel-body {
+  padding: 18px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.muted {
+  color: var(--app-text-muted);
+}
+
+.danger-text {
+  color: var(--app-danger);
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.metric {
+  padding: 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.metric-label {
+  color: var(--app-text-muted);
+  font-size: 13px;
+}
+
+.metric-value {
+  margin-top: 8px;
+  color: var(--app-text);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+:root.dark .el-table,
+:root.dark .el-table__expanded-cell,
+:root.dark .el-table th.el-table__cell,
+:root.dark .el-table tr,
+:root.dark .el-table td.el-table__cell {
+  background-color: var(--app-surface);
+  color: var(--app-text-body);
+}
+
+:root.dark .el-table th.el-table__cell {
+  color: var(--app-text);
+  background-color: var(--app-surface-soft);
+}
+
+:root.dark .el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
+  background-color: var(--app-surface-soft);
+}
+
+:root.dark .el-menu,
+:root.dark .el-sub-menu__title,
+:root.dark .el-menu-item {
+  background-color: var(--app-surface);
+  color: var(--app-text-body);
+}
+
+:root.dark .el-menu-item.is-active,
+:root.dark .el-sub-menu__title:hover,
+:root.dark .el-menu-item:hover {
+  background-color: var(--app-surface-soft);
+}
+
+:root.dark .el-input__wrapper,
+:root.dark .el-textarea__inner,
+:root.dark .el-select__wrapper,
+:root.dark .el-input-number,
+:root.dark .el-input-number__decrease,
+:root.dark .el-input-number__increase {
+  background-color: var(--app-surface);
+  border-color: var(--app-border);
+  color: var(--app-text-body);
+  box-shadow: 0 0 0 1px var(--app-border) inset;
+}
+
+:root.dark .el-dialog,
+:root.dark .el-drawer,
+:root.dark .el-message-box {
+  background-color: var(--app-surface);
+  color: var(--app-text-body);
+}
+
+:root.dark .el-dialog__title,
+:root.dark .el-drawer__title,
+:root.dark .el-message-box__title {
+  color: var(--app-text);
+}
+
+:root.dark .content-panel,
+:root.dark .metric,
+:root.dark .activity-card,
+:root.dark .claims-panel,
+:root.dark .claim-item,
+:root.dark .tutorial-columns,
+:root.dark .search-bar,
+:root.dark .category-item,
+:root.dark .title-item,
+:root.dark .table-scroll {
+  border-color: var(--app-border);
+  background-color: var(--app-surface);
+}
+
+:root.dark .category-column,
+:root.dark .group-header,
+:root.dark .usage-guide > div,
+:root.dark .activity-meta div {
+  background-color: var(--app-surface-soft);
+}
+
+:root.dark .category-item:hover,
+:root.dark .category-item.active,
+:root.dark .title-item:hover,
+:root.dark .title-item.active,
+:root.dark .tutorial-item:hover,
+:root.dark .tutorial-item.active {
+  background-color: var(--app-surface-hover);
+  border-color: #60a5fa;
+}
+
+:root.dark .auth-card,
+:root.dark .help-layout,
+:root.dark .help-content,
+:root.dark .activity-card,
+:root.dark .claims-panel,
+:root.dark .code-box,
+:root.dark .preview-box div {
+  border-color: var(--app-border);
+  background-color: var(--app-surface);
+  color: var(--app-text-body);
+}
+
+:root.dark .help-list,
+:root.dark .activity-meta div,
+:root.dark .claim-item,
+:root.dark .preview-box div span {
+  border-color: var(--app-border);
+  background-color: var(--app-surface-soft);
+}
+
+:root.dark .help-list {
+  border-right-color: var(--app-border);
+}
+
+:root.dark .help-list-item {
+  border-bottom-color: var(--app-border);
+  color: var(--app-text);
+}
+
+:root.dark .help-list-item.active,
+:root.dark .help-list-item:hover {
+  background-color: var(--app-surface-hover);
+}
+
+:root.dark .login-copy p,
+:root.dark .auth-footer,
+:root.dark .field-hint,
+:root.dark .help-list-item span,
+:root.dark .help-list-item small,
+:root.dark .activity-description,
+:root.dark .activity-meta span,
+:root.dark .muted,
+:root.dark .claim-item span,
+:root.dark .claim-item small,
+:root.dark .preview-note,
+:root.dark .target-help,
+:root.dark .slot-help {
+  color: var(--app-text-muted);
+}
+
+:root.dark .activity-title-row h2,
+:root.dark .activity-meta strong,
+:root.dark .usage-guide strong,
+:root.dark .preview-box strong,
+:root.dark .target-help strong,
+:root.dark .slot-help strong,
+:root.dark .slot-time,
+:root.dark .slot-header,
+:root.dark .preview-box div span {
+  color: var(--app-text);
+}
+
+:root.dark .target-section + .target-section {
+  border-top-color: var(--app-border);
+}
+
+:root.dark .inline-edit-button {
+  border-color: #2563eb;
+  background-color: #172554;
+  color: #93c5fd;
+}
+
+:root.dark .inline-edit-button:hover,
+:root.dark .inline-edit-button:focus {
+  border-color: #60a5fa;
+  background-color: #1e3a8a;
+  color: #bfdbfe;
+}
+
+:root.dark .message-tabs .notice-reader {
+  border-color: var(--app-border);
+  background-color: var(--app-surface);
+}
+
+:root.dark .message-tabs .notice-list {
+  border-right-color: var(--app-border);
+  background-color: var(--app-surface-soft);
+}
+
+:root.dark .message-tabs .notice-item {
+  color: var(--app-text-body);
+}
+
+:root.dark .message-tabs .notice-item:hover {
+  background-color: var(--app-surface-hover);
+}
+
+:root.dark .message-tabs .notice-item.active {
+  background-color: #172554;
+}
+
+:root.dark .message-tabs .notice-item span,
+:root.dark .message-tabs .notice-item p {
+  color: var(--app-text-muted);
+}
+
+:root.dark .message-tabs .notice-detail {
+  background-color: var(--app-surface);
+  color: var(--app-text-body);
+}
+
+:root.dark .message-tabs .notice-detail-header {
+  border-bottom-color: var(--app-border);
+}
+
+:root.dark .message-tabs .notice-detail-header h2 {
+  color: var(--app-text);
+}
+
+:root.dark .message-tabs .notice-detail-header span {
+  color: var(--app-text-muted);
+}
+
+:root.dark .message-tabs .chat-panel,
+:root.dark .support-layout .chat-panel {
+  border-color: var(--app-border) !important;
+  background-color: var(--app-surface) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .message-tabs .chat-toolbar,
+:root.dark .message-tabs .chat-input,
+:root.dark .support-layout .chat-toolbar,
+:root.dark .support-layout .chat-input {
+  border-color: var(--app-border) !important;
+  background-color: var(--app-surface-soft) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .message-tabs .message-list,
+:root.dark .support-layout .message-list {
+  background-color: var(--app-bg) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .message-tabs .message-bubble,
+:root.dark .support-layout .message-bubble {
+  border-color: var(--app-border) !important;
+  background-color: var(--app-surface-soft) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .message-tabs .message-row.mine .message-bubble,
+:root.dark .support-layout .message-row.mine .message-bubble {
+  border-color: #2563eb !important;
+  background-color: #172554 !important;
+}
+
+:root.dark .message-tabs .message-meta,
+:root.dark .support-layout .message-meta {
+  color: var(--app-text-muted) !important;
+}
+
+:root.dark .message-tabs .world-nickname,
+:root.dark .support-layout .chat-title strong,
+:root.dark .support-layout .conversation-top strong,
+:root.dark .support-layout .conversation-uid {
+  color: var(--app-text) !important;
+}
+
+:root.dark .support-layout .conversation-list {
+  border-right-color: var(--app-border) !important;
+  background-color: var(--app-surface-soft) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .support-layout .conversation-search {
+  border-bottom-color: var(--app-border) !important;
+  background-color: var(--app-surface) !important;
+}
+
+:root.dark .support-layout .conversation-item {
+  background-color: transparent !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .support-layout .conversation-item:hover {
+  background-color: var(--app-surface-hover) !important;
+}
+
+:root.dark .support-layout .conversation-item.active,
+:root.dark .support-layout .conversation-item.active:hover {
+  background-color: #172554 !important;
+}
+
+:root.dark .support-layout .conversation-top span,
+:root.dark .support-layout .conversation-message,
+:root.dark .support-layout .conversation-time {
+  color: var(--app-text-muted) !important;
+}
+
+:root.dark .slot-list .slot-row {
+  border-color: var(--app-border) !important;
+  background-color: var(--app-surface) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .slot-list .slot-row.disabled {
+  background-color: var(--app-surface-soft) !important;
+}
+
+:root.dark .slot-list .slot-header,
+:root.dark .slot-list .slot-time,
+:root.dark .slot-list .slot-name {
+  color: var(--app-text) !important;
+}
+
+:root.dark .slot-list .slot-mode,
+:root.dark .slot-groups .group-title {
+  color: var(--app-text-muted) !important;
+}
+
+:root.dark .login-copy h1,
+:root.dark .auth-card h2,
+:root.dark .session-status,
+:root.dark .help-content h2,
+:root.dark .help-content h3,
+:root.dark .help-list-item,
+:root.dark .activity-title-row h2,
+:root.dark .activity-meta strong,
+:root.dark .code-box,
+:root.dark .usage-guide strong,
+:root.dark .notice-detail-header h2,
+:root.dark .notice-item strong,
+:root.dark .conversation-top strong,
+:root.dark .chat-title strong,
+:root.dark .message-meta strong,
+:root.dark .world-nickname,
+:root.dark .slot-time,
+:root.dark .slot-name,
+:root.dark .slot-header,
+:root.dark .target-help strong,
+:root.dark .slot-help strong,
+:root.dark .preview-box strong,
+:root.dark .preview-box div span,
+:root.dark .detail-label,
+:root.dark .setting-label,
+:root.dark .tutorial-title,
+:root.dark .content-column h1,
+:root.dark .content-column h2,
+:root.dark .content-column h3,
+:root.dark .category-item,
+:root.dark .title-item,
+:root.dark .title-item strong {
+  color: var(--app-text) !important;
+}
+
+:root.dark .login-copy p,
+:root.dark .auth-footer,
+:root.dark .field-hint,
+:root.dark .help-list-item span,
+:root.dark .help-list-item small,
+:root.dark .help-content p,
+:root.dark .activity-description,
+:root.dark .activity-meta span,
+:root.dark .claim-item span,
+:root.dark .claim-item small,
+:root.dark .status-text,
+:root.dark .status-pill,
+:root.dark .notice-item span,
+:root.dark .notice-item p,
+:root.dark .notice-detail-header span,
+:root.dark .conversation-top span,
+:root.dark .conversation-message,
+:root.dark .conversation-time,
+:root.dark .message-meta,
+:root.dark .world-subline,
+:root.dark .slot-mode,
+:root.dark .group-title,
+:root.dark .target-help,
+:root.dark .slot-help,
+:root.dark .preview-note,
+:root.dark .field-help,
+:root.dark .category-item span,
+:root.dark .title-item small,
+:root.dark .tutorial-meta,
+:root.dark .muted {
+  color: var(--app-text-muted) !important;
+}
+
+:root.dark .login-copy,
+:root.dark .auth-card,
+:root.dark .help-layout,
+:root.dark .help-content,
+:root.dark .activity-card,
+:root.dark .claims-panel,
+:root.dark .claim-item,
+:root.dark .notice-reader,
+:root.dark .notice-detail,
+:root.dark .chat-panel,
+:root.dark .message-list,
+:root.dark .message-bubble,
+:root.dark .conversation-list,
+:root.dark .conversation-item,
+:root.dark .slot-list,
+:root.dark .slot-row,
+:root.dark .tutorial-columns,
+:root.dark .category-column,
+:root.dark .title-column,
+:root.dark .content-column,
+:root.dark .category-item,
+:root.dark .title-item,
+:root.dark .preview-box div {
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .el-tabs__item,
+:root.dark .el-form-item__label,
+:root.dark .el-descriptions__label,
+:root.dark .el-descriptions__content,
+:root.dark .el-empty__description,
+:root.dark .el-checkbox__label,
+:root.dark .el-radio__label,
+:root.dark .el-segmented-item__label,
+:root.dark .el-dropdown-menu__item,
+:root.dark .el-input__inner,
+:root.dark .el-textarea__inner {
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .el-tabs__item.is-active,
+:root.dark .el-table th.el-table__cell,
+:root.dark .el-dialog__title,
+:root.dark .el-drawer__title,
+:root.dark .el-message-box__title {
+  color: var(--app-text) !important;
+}
+
+:root.dark .el-input__inner::placeholder,
+:root.dark .el-textarea__inner::placeholder {
+  color: var(--app-text-muted) !important;
+}
+
+:root.dark .el-descriptions__label,
+:root.dark .el-table th.el-table__cell,
+:root.dark .el-segmented {
+  background-color: var(--app-surface-soft) !important;
+}
+
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+:root.dark .send-task-drawer,
+:root.dark .send-task-drawer.el-drawer,
+:root.dark .send-task-drawer .el-drawer,
+:root.dark .send-task-drawer .el-drawer__body,
+:root.dark .send-task-drawer .drawer-content,
+:root.dark .send-task-drawer .drawer-form {
+  background-color: var(--app-surface) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .send-task-drawer .drawer-footer {
+  border-top-color: var(--app-border) !important;
+  background-color: var(--app-surface) !important;
+}
+
+:root.dark .send-task-drawer .task-switch-row,
+:root.dark .send-task-drawer .task-panel-body,
+:root.dark .send-task-drawer .panel-scroll,
+:root.dark .send-task-drawer .target-panel,
+:root.dark .send-task-drawer .slot-picker {
+  border-color: var(--app-border) !important;
+  background-color: var(--app-surface) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .send-task-drawer .preview-box > div {
+  border-color: var(--app-border) !important;
+  background-color: var(--app-bg) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .send-task-drawer .preview-box > div span {
+  background-color: var(--app-surface-soft) !important;
+  color: var(--app-text) !important;
+}
+
+:root.dark .send-task-drawer .target-section + .target-section {
+  border-top-color: var(--app-border) !important;
+}
+
+:root.dark .send-task-drawer .strong-form-label .el-form-item__label,
+:root.dark .send-task-drawer .task-switch-row,
+:root.dark .send-task-drawer .speech-help strong,
+:root.dark .send-task-drawer .target-help strong,
+:root.dark .send-task-drawer .slot-help strong,
+:root.dark .send-task-drawer .preview-box strong,
+:root.dark .send-task-drawer .slot-header,
+:root.dark .send-task-drawer .slot-time,
+:root.dark .send-task-drawer .slot-name {
+  color: var(--app-text) !important;
+}
+
+:root.dark .send-task-drawer .muted,
+:root.dark .send-task-drawer .speech-help,
+:root.dark .send-task-drawer .target-help,
+:root.dark .send-task-drawer .slot-help,
+:root.dark .send-task-drawer .preview-note,
+:root.dark .send-task-drawer .slot-type {
+  color: var(--app-text-muted) !important;
+}
+
+:root.dark .markdown-body {
+  color: #d1d5db !important;
+}
+
+:root.dark .markdown-body h1,
+:root.dark .markdown-body h2,
+:root.dark .markdown-body h3,
+:root.dark .markdown-body h4,
+:root.dark .markdown-body strong {
+  color: #f8fafc !important;
+}
+
+:root.dark .markdown-body p,
+:root.dark .markdown-body li,
+:root.dark .markdown-body td,
+:root.dark .markdown-body th {
+  color: #d1d5db !important;
+}
+
+:root.dark .markdown-body blockquote {
+  border-left-color: #475569 !important;
+  color: #cbd5e1 !important;
+}
+
+:root.dark .markdown-body a {
+  color: #60a5fa !important;
+}
+
+:root.dark .markdown-body code {
+  background-color: #1f2937 !important;
+  color: #e5e7eb !important;
+}
+
+:root.dark .markdown-body pre {
+  border: 1px solid var(--app-border) !important;
+  background-color: #020617 !important;
+  color: #f8fafc !important;
+}
+
+:root.dark .markdown-body pre code {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+:root.dark .notice-reader-shell {
+  border-color: var(--app-border) !important;
+  background-color: var(--app-surface) !important;
+}
+
+:root.dark .notice-reader-shell .notice-list {
+  border-right-color: var(--app-border) !important;
+  background-color: var(--app-surface-soft) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .notice-reader-shell .notice-item {
+  background-color: transparent !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .notice-reader-shell .notice-item:hover {
+  background-color: var(--app-surface-hover) !important;
+}
+
+:root.dark .notice-reader-shell .notice-item.active {
+  background-color: #172554 !important;
+}
+
+:root.dark .notice-reader-shell .notice-item strong {
+  color: var(--app-text) !important;
+}
+
+:root.dark .notice-reader-shell .notice-item span,
+:root.dark .notice-reader-shell .notice-item p {
+  color: var(--app-text-muted) !important;
+}
+
+:root.dark .notice-reader-shell .notice-detail {
+  background-color: var(--app-surface) !important;
+  color: var(--app-text-body) !important;
+}
+
+:root.dark .title-column .title-item-main span,
+:root.dark .title-column .title-item-meta small,
+:root.dark .title-column .page-key-tags .el-tag,
+:root.dark .title-column .el-tag {
+  color: #cbd5e1 !important;
+}
+
+:root.dark .title-column .title-item strong {
+  color: #f8fafc !important;
+}
+
+:root.dark .title-column .title-item.active .title-item-main span,
+:root.dark .title-column .title-item.active .title-item-meta small,
+:root.dark .title-column .title-item:hover .title-item-main span,
+:root.dark .title-column .title-item:hover .title-item-meta small {
+  color: #dbeafe !important;
+}
+
+:root.dark .owner-cell span {
+  color: #cbd5e1 !important;
+}
+
+:root.dark .login-page {
+  background:
+    radial-gradient(circle at 20% 25%, rgba(37, 99, 235, 0.16), transparent 34%),
+    radial-gradient(circle at 76% 70%, rgba(14, 165, 233, 0.12), transparent 32%),
+    var(--app-bg) !important;
+}
+
+@media (max-width: 900px) {
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header,
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

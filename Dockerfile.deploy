@@ -1,0 +1,2 @@
+FROM douyin-spark-web:local
+COPY dist/ /app/html/
