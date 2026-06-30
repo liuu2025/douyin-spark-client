@@ -40,7 +40,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { listAdminDouyinAccounts, listAdminSendRuns } from '@/api/adminDouyin'
+import {
+  listAdminAccountSendTasks,
+  listAdminDouyinAccounts,
+  listAdminSendRuns,
+} from '@/api/adminDouyin'
 import { listAdminScheduleSlots } from '@/api/schedule'
 import { listAdminUsers } from '@/api/adminUsers'
 import type { SendRunList, SendRunQuery } from '@/api/sendTasks'
@@ -51,6 +55,7 @@ interface RunFilterOption {
   label: string
   value: string
   owner_public_uid?: string
+  douyin_id?: string
 }
 
 const runsPanel = ref<InstanceType<typeof SendRunRecordsPanel> | null>(null)
@@ -114,6 +119,24 @@ async function loadFilterOptions() {
     value: slot.id,
     label: slot.name ? `${slot.name} / ${slot.id}` : slot.id,
   }))
+  const taskLists = await Promise.all(
+    accounts.items.map(async (account) => {
+      try {
+        const tasks = await listAdminAccountSendTasks(account.douyin_id)
+        return tasks.map((task) => {
+          const taskID = task.id || task.task_id || ''
+          return {
+            value: taskID,
+            label: taskOptionLabel(taskID, account.douyin_id, account.profile_nickname),
+            douyin_id: account.douyin_id,
+          }
+        })
+      } catch {
+        return [] as RunFilterOption[]
+      }
+    }),
+  )
+  filterOptions.task_id = mergeOptions(taskLists.flat())
   latestList.value = sampleRuns
   addRunOptions(sampleRuns.items)
 }
@@ -121,7 +144,7 @@ async function loadFilterOptions() {
 function addRunOptions(runs: SendRun[]) {
   filterOptions.task_id = mergeOptions([
     ...filterOptions.task_id,
-    ...runs.map((run) => optionFromValue(run.task_id)),
+    ...runs.map((run) => optionFromRunTask(run)),
   ])
   filterOptions.slot_id = mergeOptions([
     ...filterOptions.slot_id,
@@ -138,6 +161,24 @@ function optionFromValue(value?: string): RunFilterOption {
   return normalized ? { value: normalized, label: normalized } : { value: '', label: '' }
 }
 
+function optionFromRunTask(run: SendRun): RunFilterOption {
+  const taskID = String(run.task_id || '').trim()
+  if (!taskID) return { value: '', label: '' }
+  const douyinID = String(run.douyin_id || '').trim()
+  return {
+    value: taskID,
+    label: taskOptionLabel(taskID, douyinID, run.profile_nickname),
+    douyin_id: douyinID || undefined,
+  }
+}
+
+function taskOptionLabel(taskID: string, douyinID?: string, profileNickname?: string) {
+  return [taskID, douyinID, profileNickname]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(' / ')
+}
+
 function mergeOptions(options: RunFilterOption[]) {
   const seen = new Set<string>()
   const merged: RunFilterOption[] = []
@@ -145,12 +186,14 @@ function mergeOptions(options: RunFilterOption[]) {
     const value = String(option.value || '').trim()
     if (!value || seen.has(value)) continue
     const ownerPublicUID = String(option.owner_public_uid || '').trim()
+    const douyinID = String(option.douyin_id || '').trim()
     seen.add(value)
     merged.push({
       ...option,
       value,
       label: option.label || value,
       owner_public_uid: ownerPublicUID || undefined,
+      douyin_id: douyinID || undefined,
     })
   }
   return merged

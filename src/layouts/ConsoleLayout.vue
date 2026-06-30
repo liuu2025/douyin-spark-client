@@ -10,17 +10,15 @@
       </div>
 
       <div class="sidebar-tools">
-        <el-tooltip :content="sidebarCollapsed ? '展开侧栏' : '收起侧栏'">
-          <el-button
-            class="sidebar-toggle"
-            :aria-label="sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
-            @click="toggleSidebar"
-          >
-            <ChevronRight v-if="sidebarCollapsed" :size="16" />
-            <ChevronLeft v-else :size="16" />
-            <span v-show="!sidebarCollapsed">收起侧栏</span>
-          </el-button>
-        </el-tooltip>
+        <el-button
+          class="sidebar-toggle"
+          :aria-label="sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
+          @click="toggleSidebar"
+        >
+          <ChevronRight v-if="sidebarCollapsed" :size="16" />
+          <ChevronLeft v-else :size="16" />
+          <span v-show="!sidebarCollapsed">收起侧栏</span>
+        </el-button>
       </div>
 
       <el-menu :collapse="sidebarCollapsed" :default-active="activeMenu" router class="side-menu">

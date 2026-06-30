@@ -28,7 +28,7 @@
           filterable
           size="small"
           placeholder="抖音号"
-          @change="reloadFirstPage"
+          @change="handleDouyinChange"
         >
           <el-option
             v-for="option in mergedOptions.douyin_id"
@@ -45,7 +45,7 @@
           filterable
           size="small"
           placeholder="任务ID"
-          @change="reloadFirstPage"
+          @change="handleTaskChange"
         >
           <el-option
             v-for="option in mergedOptions.task_id"
@@ -235,6 +235,7 @@ interface RunFilterOption {
   label: string
   value: string
   owner_public_uid?: string
+  douyin_id?: string
 }
 
 const props = withDefaults(
@@ -311,10 +312,10 @@ const mergedOptions = computed<Record<RunFilterField, RunFilterOption[]>>(() => 
     ...(props.filterOptions?.douyin_id || []),
     ...runs.value.map((run) => optionFromValue(run.douyin_id)),
   ])),
-  task_id: mergeOptions([
+  task_id: filterTaskOptions(mergeOptions([
     ...(props.filterOptions?.task_id || []),
-    ...runs.value.map((run) => optionFromValue(run.task_id)),
-  ]),
+    ...runs.value.map((run) => optionFromRunTask(run)),
+  ])),
   slot_id: mergeOptions([
     ...(props.filterOptions?.slot_id || []),
     ...runs.value.map((run) => optionFromValue(run.slot_id)),
@@ -374,6 +375,32 @@ async function handleOwnerChange() {
     !mergedOptions.value.douyin_id.some((option) => option.value === filters.douyin_id)
   ) {
     filters.douyin_id = ''
+    filters.task_id = ''
+  } else if (
+    filters.task_id &&
+    !mergedOptions.value.task_id.some((option) => option.value === filters.task_id)
+  ) {
+    filters.task_id = ''
+  }
+  await reloadFirstPage()
+}
+
+async function handleDouyinChange() {
+  if (
+    filters.task_id &&
+    !mergedOptions.value.task_id.some((option) => option.value === filters.task_id)
+  ) {
+    filters.task_id = ''
+  }
+  await reloadFirstPage()
+}
+
+async function handleTaskChange() {
+  if (
+    filters.douyin_id &&
+    !mergedOptions.value.douyin_id.some((option) => option.value === filters.douyin_id)
+  ) {
+    filters.douyin_id = ''
   }
   await reloadFirstPage()
 }
@@ -385,11 +412,22 @@ async function resetFilters() {
 }
 
 function filterDouyinOptions(options: RunFilterOption[]) {
-  if (!filters.owner_public_uid) return options
   return options.filter((option) => {
-    if (!option.owner_public_uid) return false
-    return option.owner_public_uid === filters.owner_public_uid
+    if (filters.owner_public_uid) {
+      if (!option.owner_public_uid) return false
+      if (option.owner_public_uid !== filters.owner_public_uid) return false
+    }
+    if (filters.task_id) {
+      const taskOption = mergedTaskOptions().find((item) => item.value === filters.task_id)
+      if (taskOption?.douyin_id) return option.value === taskOption.douyin_id
+    }
+    return true
   })
+}
+
+function filterTaskOptions(options: RunFilterOption[]) {
+  if (!filters.douyin_id) return options
+  return options.filter((option) => option.douyin_id === filters.douyin_id)
 }
 
 function ownerPublicUID(run: SendRun) {
@@ -525,6 +563,17 @@ function optionFromValue(value?: string): RunFilterOption {
   return normalized ? { label: normalized, value: normalized } : { label: '', value: '' }
 }
 
+function optionFromRunTask(run: SendRun): RunFilterOption {
+  const taskID = String(run.task_id || '').trim()
+  if (!taskID) return { label: '', value: '' }
+  const douyinID = String(run.douyin_id || '').trim()
+  return {
+    label: taskID,
+    value: taskID,
+    douyin_id: douyinID || undefined,
+  }
+}
+
 function errorOption(value?: string): RunFilterOption {
   const normalized = String(value || '').trim()
   if (!normalized) return { label: '', value: '' }
@@ -578,15 +627,24 @@ function mergeOptions(options: RunFilterOption[]) {
     const value = String(option.value || '').trim()
     if (!value || seen.has(value)) continue
     const ownerPublicUID = String(option.owner_public_uid || '').trim()
+    const douyinID = String(option.douyin_id || '').trim()
     seen.add(value)
     merged.push({
       ...option,
       label: option.label || value,
       value,
       owner_public_uid: ownerPublicUID || undefined,
+      douyin_id: douyinID || undefined,
     })
   }
   return merged
+}
+
+function mergedTaskOptions() {
+  return mergeOptions([
+    ...(props.filterOptions?.task_id || []),
+    ...runs.value.map((run) => optionFromRunTask(run)),
+  ])
 }
 
 onMounted(loadRuns)
