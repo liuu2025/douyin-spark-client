@@ -34,6 +34,10 @@
           <MessageSquareText :size="18" />
           <span>消息中心</span>
         </el-menu-item>
+        <el-menu-item index="/assistant">
+          <Bot :size="18" />
+          <span>智能客服</span>
+        </el-menu-item>
         <el-menu-item index="/account">
           <Settings :size="18" />
           <span>账号设置</span>
@@ -147,6 +151,8 @@
       </el-main>
     </el-container>
     <HelpDrawer v-model="helpOpen" :page-key="currentPageKey" />
+    <FloatingAssistantWidget />
+    <AssistantAutoSendDialog />
   </el-container>
 </template>
 
@@ -156,6 +162,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Bell,
   BookOpen,
+  Bot,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -172,6 +179,8 @@ import {
   Ticket,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import AssistantAutoSendDialog from '@/components/AssistantAutoSendDialog.vue'
+import FloatingAssistantWidget from '@/components/FloatingAssistantWidget.vue'
 import HelpDrawer from '@/components/HelpDrawer.vue'
 
 const route = useRoute()
@@ -204,6 +213,7 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/redeem-codes')) return '/redeem-codes'
   if (route.path.startsWith('/activities')) return '/activities'
   if (route.path.startsWith('/tutorials')) return '/tutorials'
+  if (route.path.startsWith('/assistant')) return '/assistant'
   return route.path
 })
 
@@ -222,6 +232,7 @@ const currentPageKey = computed(() => {
   if (path.startsWith('/admin/users')) return 'admin_users'
   if (path.startsWith('/activities')) return 'activity_square'
   if (path.startsWith('/messages')) return 'messages'
+  if (path.startsWith('/assistant')) return 'assistant'
   if (path.startsWith('/account')) return 'account_settings'
   if (path.startsWith('/tutorials')) return 'tutorial_center'
   return 'dashboard'

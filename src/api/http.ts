@@ -83,6 +83,8 @@ export function translateError(code: string, fallback?: string) {
     change_qq_email_failed: 'QQ 邮箱更改失败，请检查验证码和邮箱格式。',
     request_failed: '请求失败，请检查后端服务是否已启动。',
     request_timeout: '请求等待时间较长，后端可能仍在处理，请稍后刷新状态。',
+    assistant_unavailable: '智能客服服务暂时不可用，请稍后再试。',
+    assistant_proxy_failed: '智能客服请求处理失败，请稍后再试。',
     invalid_json: '提交内容格式不正确。',
     admin_required: '当前操作需要管理员权限。',
     remote_login_disabled: '远程浏览器登录未启用。',

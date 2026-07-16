@@ -35,6 +35,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/MessagesView.vue'),
       },
       {
+        path: 'assistant',
+        name: 'assistant',
+        component: () => import('@/views/AssistantView.vue'),
+      },
+      {
         path: 'account',
         name: 'account',
         component: () => import('@/views/AccountSettingsView.vue'),
