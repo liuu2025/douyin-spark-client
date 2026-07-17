@@ -197,8 +197,8 @@ Dockerfile.deploy
 ## 更多说明
 
 - [更新日志](CHANGELOG.md)
-- [前端架构说明](frontend-docs/前端架构说明.md)
-- [接口接入说明](frontend-docs/接口接入说明.md)
-- [后端启动与客户端接入备忘](frontend-docs/后端启动与客户端接入备忘.md)
-- [本地预览说明](frontend-docs/本地预览说明.md)
-- [登录与账号说明](frontend-docs/登录与账号说明.md)
+- [前端架构说明](docs/前端架构说明.md)
+- [接口接入说明](docs/接口接入说明.md)
+- [后端启动与客户端接入备忘](docs/后端启动与客户端接入备忘.md)
+- [本地预览说明](docs/本地预览说明.md)
+- [登录与账号说明](docs/登录与账号说明.md)
