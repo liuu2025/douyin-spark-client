@@ -8,6 +8,21 @@
 
 后续开发中的前端变化先记录在这里，发布新版本时再移动到对应版本号下。
 
+## v0.9.1 - 2026-07-17
+
+本版本为前端文档补丁版本，配套后端 `douyin-spark v0.9.1` 和智能客服服务 `douyin-spark-assistant v0.9.1`。前端运行代码、接口调用和构建配置无变化。
+
+### 文档与仓库
+
+- 将原 `frontend-docs/` 目录整理为 `docs/`，并同步更新 README 中的文档链接。
+- 新增前端 Docker 部署说明，记录 `douyin-spark-web:local` 镜像、`Dockerfile.deploy`、`dist/` 构建产物、`BACKEND_URL` 和服务器轻量部署边界。
+- 新增本地 Docker 前端容器启动教程，覆盖构建 `dist/`、构建镜像、创建或重建 `douyin-spark-web` 容器、健康检查和三端联调方式。
+- 清理旧本机路径说明，将文档中的旧工作区路径统一到当前主工作区路径。
+
+### 已验证
+
+- 本次仅修改文档和文档目录结构，未修改 Vue 运行代码。
+
 ## v0.9.0 - 2026-07-17
 
 本版本为智能客服集成版本，配套后端 `douyin-spark v0.9.0` 和智能客服服务 `douyin-spark-assistant v0.9.0`。前端新增完整客服页面和悬浮客服入口，所有 assistant 请求仍统一走 Go 后端 `/api/v1/assistant/...`。
