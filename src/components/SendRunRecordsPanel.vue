@@ -196,10 +196,10 @@
       <el-table-column prop="id" label="运行ID" width="150" show-overflow-tooltip />
       <el-table-column prop="task_id" label="任务ID" width="150" show-overflow-tooltip />
       <el-table-column prop="cycle_id" label="周期ID" width="160" show-overflow-tooltip />
-      <el-table-column label="开始时间" width="150">
+      <el-table-column label="开始时间" min-width="180" show-overflow-tooltip>
         <template #default="{ row }">{{ formatBeijingTime(row.started_at) }}</template>
       </el-table-column>
-      <el-table-column label="结束时间" width="150">
+      <el-table-column label="结束时间" min-width="180" show-overflow-tooltip>
         <template #default="{ row }">{{ formatBeijingTime(row.finished_at) }}</template>
       </el-table-column>
     </el-table>
