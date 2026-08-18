@@ -5,7 +5,7 @@
         <h1 class="page-title">教程中心</h1>
         <p class="page-subtitle">按分类查看教程，选择标题后在右侧阅读正文。</p>
       </div>
-      <el-button @click="loadAll">刷新</el-button>
+      <el-button @click="loadAll(true)">刷新</el-button>
     </div>
 
     <div class="tutorial-shell">
@@ -14,10 +14,10 @@
           v-model.trim="filters.keyword"
           clearable
           placeholder="搜索教程、规则或关键操作"
-          @keyup.enter="loadTutorials"
-          @clear="loadTutorials"
+          @keyup.enter="loadTutorials(true)"
+          @clear="loadTutorials(true)"
         />
-        <el-button type="primary" @click="loadTutorials">搜索</el-button>
+        <el-button type="primary" @click="loadTutorials(true)">搜索</el-button>
       </div>
 
       <div class="tutorial-columns" v-loading="loading">
@@ -114,6 +114,7 @@ import {
   markTutorialRead,
 } from '@/api/tutorials'
 import type { Tutorial, TutorialCategory } from '@/api/types'
+import { createCacheKey, readCache, writeCache } from '@/utils/cache'
 import { renderMarkdown } from '@/utils/markdown'
 import { formatBeijingTime } from '@/utils/time'
 
@@ -145,6 +146,26 @@ const filters = reactive({
   category_id: '',
   keyword: '',
 })
+const CATEGORY_CACHE_TTL = 1000 * 60 * 60
+const TUTORIAL_CACHE_TTL = 1000 * 60 * 60
+
+function categoriesCacheKey() {
+  return 'tutorial-center:categories:v1'
+}
+
+function tutorialsCacheKey() {
+  return createCacheKey('tutorial-center:list:v1', {
+    category_id: filters.category_id || '',
+    keyword: filters.keyword || '',
+  })
+}
+
+function persistTutorialCache() {
+  writeCache(tutorialsCacheKey(), {
+    tutorials: tutorials.value,
+    selected: selected.value,
+  })
+}
 
 const visibleTutorials = computed(() => {
   return tutorials.value
@@ -154,20 +175,41 @@ const visibleTutorials = computed(() => {
 
 onMounted(loadAll)
 
-async function loadAll() {
-  await Promise.all([loadCategories(), loadTutorials()])
+async function loadAll(force = false) {
+  await Promise.all([loadCategories(force), loadTutorials(force)])
 }
 
-async function loadCategories() {
+async function loadCategories(force = false) {
+  if (!force) {
+    const cached = readCache<TutorialCategory[]>(categoriesCacheKey(), CATEGORY_CACHE_TTL)
+    if (cached) {
+      categories.value = cached
+    }
+  }
   try {
-    categories.value = await listTutorialCategories()
+    const data = await listTutorialCategories()
+    categories.value = data
+    writeCache(categoriesCacheKey(), data)
   } catch (error) {
     ElMessage.error(errorText(error))
   }
 }
 
-async function loadTutorials() {
-  loading.value = true
+async function loadTutorials(force = false) {
+  const cacheKey = tutorialsCacheKey()
+  if (!force) {
+    const cached = readCache<{ tutorials: Tutorial[]; selected: Tutorial | null }>(
+      cacheKey,
+      TUTORIAL_CACHE_TTL,
+    )
+    if (cached) {
+      tutorials.value = cached.tutorials || []
+      selected.value = cached.selected || null
+    }
+    loading.value = !cached
+  } else {
+    loading.value = true
+  }
   try {
     const data = await listTutorials({
       page: 1,
@@ -181,6 +223,10 @@ async function loadTutorials() {
     if (!selected.value && visibleTutorials.value.length > 0) {
       await selectTutorial(visibleTutorials.value[0])
     }
+    if (tutorials.value.length === 0) {
+      selected.value = null
+    }
+    persistTutorialCache()
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -194,6 +240,7 @@ async function selectCategory(categoryId: string) {
     await selectTutorial(visibleTutorials.value[0])
   } else {
     selected.value = null
+    persistTutorialCache()
   }
 }
 
@@ -206,6 +253,7 @@ async function selectTutorial(tutorial: Tutorial) {
       const item = tutorials.value.find((current) => current.id === tutorial.id)
       if (item) item.is_read = true
     }
+    persistTutorialCache()
   } catch (error) {
     ElMessage.error(errorText(error))
   }

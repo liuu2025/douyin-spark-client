@@ -11,10 +11,10 @@
           v-model.trim="keyword"
           clearable
           placeholder="搜索教程"
-          @keyup.enter="loadTutorials"
-          @clear="loadTutorials"
+          @keyup.enter="loadTutorials(true)"
+          @clear="loadTutorials(true)"
         />
-        <el-button :loading="loading" @click="loadTutorials">搜索</el-button>
+        <el-button :loading="loading" @click="loadTutorials(true)">搜索</el-button>
       </div>
 
       <div class="help-layout">
@@ -65,6 +65,7 @@ import { ElMessage } from 'element-plus'
 import { errorText } from '@/api/http'
 import { getTutorial, listTutorials, markTutorialRead } from '@/api/tutorials'
 import type { Tutorial } from '@/api/types'
+import { createCacheKey, readCache, writeCache } from '@/utils/cache'
 import { renderMarkdown } from '@/utils/markdown'
 
 const props = defineProps<{
@@ -80,6 +81,21 @@ const loading = ref(false)
 const keyword = ref('')
 const tutorials = ref<Tutorial[]>([])
 const selected = ref<Tutorial | null>(null)
+const HELP_CACHE_TTL = 1000 * 60 * 60
+
+function currentCacheKey() {
+  return createCacheKey('help-drawer:v1', {
+    page_key: props.pageKey || '',
+    keyword: keyword.value || '',
+  })
+}
+
+function persistCache() {
+  writeCache(currentCacheKey(), {
+    tutorials: tutorials.value,
+    selected: selected.value,
+  })
+}
 
 watch(
   () => [props.modelValue, props.pageKey] as const,
@@ -89,8 +105,14 @@ watch(
   { immediate: true },
 )
 
-async function loadTutorials() {
-  loading.value = true
+async function loadTutorials(force = false) {
+  const cacheKey = currentCacheKey()
+  const cached = force ? null : readCache<{ tutorials: Tutorial[]; selected: Tutorial | null }>(cacheKey, HELP_CACHE_TTL)
+  if (cached) {
+    tutorials.value = cached.tutorials || []
+    selected.value = cached.selected || null
+  }
+  loading.value = !cached
   try {
     const data = await listTutorials({
       page: 1,
@@ -99,11 +121,16 @@ async function loadTutorials() {
       keyword: keyword.value || undefined,
     })
     tutorials.value = data.items || []
-    if (tutorials.value.length > 0) {
-      await selectTutorial(tutorials.value[0])
-    } else {
+    if (selected.value && !tutorials.value.some((tutorial) => tutorial.id === selected.value?.id)) {
       selected.value = null
     }
+    if (!selected.value && tutorials.value.length > 0) {
+      await selectTutorial(tutorials.value[0])
+    }
+    if (tutorials.value.length === 0) {
+      selected.value = null
+    }
+    persistCache()
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -120,6 +147,7 @@ async function selectTutorial(tutorial: Tutorial) {
       const item = tutorials.value.find((current) => current.id === tutorial.id)
       if (item) item.is_read = true
     }
+    persistCache()
   } catch (error) {
     ElMessage.error(errorText(error))
   }

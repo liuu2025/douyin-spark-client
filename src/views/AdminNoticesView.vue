@@ -25,7 +25,7 @@
           <el-tab-pane label="已发布通知" name="published">
             <div class="toolbar">
               <strong>已发布通知</strong>
-              <el-button @click="loadNotices">刷新</el-button>
+              <el-button @click="loadNotices(true)">刷新</el-button>
             </div>
             <div class="notice-reader-shell" v-loading="loading">
               <div class="notice-list">
@@ -84,6 +84,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { archiveNotice, createNotice, listAdminNotices } from '@/api/notices'
 import { errorText } from '@/api/http'
 import type { Notice } from '@/api/types'
+import { createCacheKey, readCache, writeCache } from '@/utils/cache'
 import { formatBeijingTime } from '@/utils/time'
 
 const form = reactive({
@@ -96,6 +97,11 @@ const selectedNotice = ref<Notice | null>(null)
 const publishing = ref(false)
 const loading = ref(false)
 const archiving = ref(false)
+const NOTICES_CACHE_TTL = 1000 * 60
+
+function noticesCacheKey() {
+  return createCacheKey('admin-notices:list:v1')
+}
 
 function shortTime(value?: string) {
   return formatBeijingTime(value)
@@ -105,13 +111,25 @@ function isArchived(notice: Notice) {
   return notice.status === 'archived'
 }
 
-async function loadNotices() {
-  loading.value = true
+async function loadNotices(force = false) {
+  if (!force) {
+    const cached = readCache<Notice[]>(noticesCacheKey(), NOTICES_CACHE_TTL)
+    if (cached) {
+      notices.value = cached
+      if (!selectedNotice.value || !notices.value.some((item) => item.id === selectedNotice.value?.id)) {
+        selectedNotice.value = notices.value[0] || null
+      }
+    }
+    loading.value = !cached
+  } else {
+    loading.value = true
+  }
   try {
     notices.value = await listAdminNotices()
     if (!selectedNotice.value || !notices.value.some((item) => item.id === selectedNotice.value?.id)) {
       selectedNotice.value = notices.value[0] || null
     }
+    writeCache(noticesCacheKey(), notices.value)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -130,7 +148,7 @@ async function publish() {
     form.title = ''
     form.content = ''
     ElMessage.success('通知已发布。')
-    await loadNotices()
+    await loadNotices(true)
     activeTab.value = 'published'
   } catch (error) {
     ElMessage.error(errorText(error))
@@ -149,7 +167,7 @@ async function confirmArchiveNotice(notice: Notice) {
     archiving.value = true
     const archived = await archiveNotice(notice.id)
     ElMessage.success('通知已撤回。')
-    await loadNotices()
+    await loadNotices(true)
     selectedNotice.value = notices.value.find((item) => item.id === archived.id) || archived
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
@@ -160,7 +178,7 @@ async function confirmArchiveNotice(notice: Notice) {
   }
 }
 
-onMounted(loadNotices)
+onMounted(() => loadNotices())
 </script>
 
 <style scoped>

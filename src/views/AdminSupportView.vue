@@ -5,7 +5,7 @@
         <h1 class="page-title">用户咨询</h1>
         <p class="page-subtitle">管理员查看和回复普通用户的站内咨询消息。</p>
       </div>
-      <el-button @click="loadConversations">刷新会话</el-button>
+      <el-button @click="loadConversations(false)">刷新会话</el-button>
     </div>
 
     <div class="content-panel support-panel">
@@ -63,7 +63,7 @@
                   <div class="conversation-uid">UID {{ activeUid }}</div>
                 </div>
               </div>
-              <el-button @click="loadMessages(activeUid)">刷新消息</el-button>
+              <el-button @click="loadMessages(activeUid, false)">刷新消息</el-button>
             </div>
             <div class="message-list" v-loading="messagesLoading">
               <el-empty v-if="messages.length === 0 && !messagesLoading" description="暂无消息" />
@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import MessageContent from '@/components/MessageContent.vue'
 import {
@@ -112,18 +112,52 @@ import {
 } from '@/api/support'
 import { errorText } from '@/api/http'
 import type { SupportConversation, SupportMessage, User } from '@/api/types'
+import { useAuthStore } from '@/stores/auth'
+import {
+  latestSupportConversationTimestamp,
+  latestSupportMessageTimestamp,
+  writeSeenTimestamp,
+} from '@/utils/unread'
 import { formatBeijingTime } from '@/utils/time'
 
 const conversations = ref<SupportConversation[]>([])
 const messages = ref<SupportMessage[]>([])
 const activeUser = ref<User | null>(null)
+const auth = useAuthStore()
 const conversationsLoading = ref(false)
 const messagesLoading = ref(false)
 const replying = ref(false)
+const autoRefreshTimer = ref<number | null>(null)
+const autoRefreshBusy = ref(false)
 const activeUid = ref('')
 const replyText = ref('')
 const searchKeyword = ref('')
 const chatInputAutosize = { minRows: 2, maxRows: 10 }
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer.value !== null) {
+    window.clearInterval(autoRefreshTimer.value)
+    autoRefreshTimer.value = null
+  }
+}
+
+function syncAutoRefresh() {
+  stopAutoRefresh()
+  if (document.hidden || !activeUid.value) return
+  autoRefreshTimer.value = window.setInterval(() => {
+    void refreshConversationSilently()
+  }, 3000)
+}
+
+async function refreshConversationSilently() {
+  if (autoRefreshBusy.value || document.hidden || !activeUid.value) return
+  autoRefreshBusy.value = true
+  try {
+    await Promise.all([loadConversations(true), loadMessages(activeUid.value, true)])
+  } finally {
+    autoRefreshBusy.value = false
+  }
+}
 
 function senderText(sender?: string) {
   if (sender === 'admin') return '管理员'
@@ -158,17 +192,26 @@ const activeUserName = computed(() => {
   return row ? conversationName(row) : '用户'
 })
 
-async function loadConversations() {
-  conversationsLoading.value = true
+async function loadConversations(silent = false) {
+  if (!silent) {
+    conversationsLoading.value = true
+  }
   try {
     conversations.value = await listAdminSupportConversations()
+    writeSeenTimestamp(
+      'admin-support',
+      auth.user?.public_uid || auth.user?.id || '',
+      latestSupportConversationTimestamp(conversations.value),
+    )
     if (!activeUid.value && conversations.value[0]) {
       await selectConversation(conversations.value[0])
     }
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
-    conversationsLoading.value = false
+    if (!silent) {
+      conversationsLoading.value = false
+    }
   }
 }
 
@@ -176,18 +219,28 @@ async function selectConversation(row: SupportConversation) {
   activeUid.value = row.public_uid
   activeUser.value = null
   await loadMessages(row.public_uid)
+  syncAutoRefresh()
 }
 
-async function loadMessages(publicUid: string) {
-  messagesLoading.value = true
+async function loadMessages(publicUid: string, silent = false) {
+  if (!silent) {
+    messagesLoading.value = true
+  }
   try {
     const data = await listAdminConversationMessages(publicUid)
     activeUser.value = data.user || null
     messages.value = data.items || []
+    writeSeenTimestamp(
+      'admin-support',
+      auth.user?.public_uid || auth.user?.id || '',
+      latestSupportMessageTimestamp(messages.value),
+    )
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
-    messagesLoading.value = false
+    if (!silent) {
+      messagesLoading.value = false
+    }
   }
 }
 
@@ -209,7 +262,23 @@ async function reply() {
   }
 }
 
-onMounted(loadConversations)
+function handleVisibilityChange() {
+  syncAutoRefresh()
+  if (!document.hidden && activeUid.value) {
+    void refreshConversationSilently()
+  }
+}
+
+onMounted(async () => {
+  await loadConversations()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  syncAutoRefresh()
+})
+
+onBeforeUnmount(() => {
+  stopAutoRefresh()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
 </script>
 
 <style scoped>

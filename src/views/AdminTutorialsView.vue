@@ -93,7 +93,7 @@
                 />
               </el-select>
               <el-input v-model.trim="tutorialFilters.keyword" clearable placeholder="关键词" />
-              <el-button @click="loadTutorials">筛选</el-button>
+              <el-button @click="loadTutorials()">筛选</el-button>
             </div>
             <el-button type="primary" @click="openTutorialDialog()">新增教程</el-button>
           </div>
@@ -130,7 +130,7 @@
               :page-size="20"
               layout="prev, pager, next, total"
               :total="tutorialTotal"
-              @current-change="loadTutorials"
+              @current-change="loadTutorials()"
             />
           </div>
         </div>
@@ -260,6 +260,7 @@ import {
   updateAdminTutorialCategory,
 } from '@/api/tutorials'
 import type { Tutorial, TutorialCategory } from '@/api/types'
+import { createCacheKey, readCache, writeCache } from '@/utils/cache'
 import { formatBeijingTime } from '@/utils/time'
 
 interface RecommendedTutorial {
@@ -328,6 +329,22 @@ const tutorialFilters = reactive({
   page_key: '',
   keyword: '',
 })
+const CATEGORY_CACHE_TTL = 1000 * 60 * 5
+const TUTORIAL_CACHE_TTL = 1000 * 60
+
+function categoriesCacheKey() {
+  return createCacheKey('admin-tutorial-categories:list:v1')
+}
+
+function tutorialsCacheKey() {
+  return createCacheKey('admin-tutorials:list:v1', {
+    page: tutorialPage.value,
+    category_id: tutorialFilters.category_id || '',
+    status: tutorialFilters.status || '',
+    page_key: tutorialFilters.page_key || '',
+    keyword: tutorialFilters.keyword || '',
+  })
+}
 const categoryForm = reactive({
   name: '',
   description: '',
@@ -781,10 +798,19 @@ onMounted(async () => {
   await loadTutorials()
 })
 
-async function loadCategories() {
-  categoryLoading.value = true
+async function loadCategories(force = false) {
+  if (!force) {
+    const cached = readCache<TutorialCategory[]>(categoriesCacheKey(), CATEGORY_CACHE_TTL)
+    if (cached) {
+      categories.value = cached
+    }
+    categoryLoading.value = !cached
+  } else {
+    categoryLoading.value = true
+  }
   try {
     categories.value = await listAdminTutorialCategories()
+    writeCache(categoriesCacheKey(), categories.value)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -792,8 +818,20 @@ async function loadCategories() {
   }
 }
 
-async function loadTutorials() {
-  tutorialLoading.value = true
+async function loadTutorials(force = false) {
+  if (!force) {
+    const cached = readCache<{ tutorials: Tutorial[]; total: number }>(
+      tutorialsCacheKey(),
+      TUTORIAL_CACHE_TTL,
+    )
+    if (cached) {
+      tutorials.value = cached.tutorials
+      tutorialTotal.value = cached.total
+    }
+    tutorialLoading.value = !cached
+  } else {
+    tutorialLoading.value = true
+  }
   try {
     const data = await listAdminTutorials({
       page: tutorialPage.value,
@@ -805,6 +843,10 @@ async function loadTutorials() {
     })
     tutorials.value = data.items || []
     tutorialTotal.value = data.total || 0
+    writeCache(tutorialsCacheKey(), {
+      tutorials: tutorials.value,
+      total: tutorialTotal.value,
+    })
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -815,8 +857,8 @@ async function loadTutorials() {
 async function importRecommendedTutorials() {
   importingRecommended.value = true
   try {
-    await loadCategories()
-    await loadTutorials()
+    await loadCategories(true)
+    await loadTutorials(true)
 
     const categoryMap = new Map(categories.value.map((category) => [category.name, category]))
     const titleSet = new Set(tutorials.value.map((tutorial) => tutorial.title))
@@ -858,8 +900,8 @@ async function importRecommendedTutorials() {
     ElMessage.success(
       `推荐教程导入完成：新增分类 ${createdCategoryCount} 个，新增教程 ${createdTutorialCount} 篇，跳过 ${skippedTutorialCount} 篇。`,
     )
-    await loadCategories()
-    await loadTutorials()
+    await loadCategories(true)
+    await loadTutorials(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -891,7 +933,7 @@ async function saveCategory() {
       ElMessage.success('分类已新增。')
     }
     categoryDialogOpen.value = false
-    await loadCategories()
+    await loadCategories(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -973,7 +1015,7 @@ async function saveTutorial() {
       ElMessage.success('教程已新增。')
     }
     tutorialDialogOpen.value = false
-    await loadTutorials()
+    await loadTutorials(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -997,7 +1039,7 @@ async function changeTutorialStatus(action: () => Promise<Tutorial>, message: st
   try {
     await action()
     ElMessage.success(message)
-    await loadTutorials()
+    await loadTutorials(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   }

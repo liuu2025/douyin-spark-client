@@ -12,7 +12,7 @@
           <el-tab-pane label="系统通知" name="notices">
             <div class="toolbar">
               <strong>系统通知</strong>
-              <el-button @click="loadNotices">刷新</el-button>
+              <el-button @click="loadNotices(true)">刷新</el-button>
             </div>
             <div class="notice-reader" v-loading="noticesLoading">
               <aside class="notice-list">
@@ -47,7 +47,7 @@
             <template v-if="auth.isAdmin">
               <div class="toolbar">
                 <strong>用户咨询摘要</strong>
-                <el-button @click="loadConversations">刷新</el-button>
+                <el-button @click="loadConversations(false)">刷新</el-button>
               </div>
               <el-table
                 :data="conversations"
@@ -81,7 +81,7 @@
               <div class="chat-panel">
                 <div class="chat-toolbar">
                   <strong>联系管理员</strong>
-                  <el-button @click="loadMessages">刷新</el-button>
+                  <el-button @click="loadMessages(false)">刷新</el-button>
                 </div>
                 <div class="message-list" v-loading="messagesLoading">
                   <el-empty v-if="messages.length === 0 && !messagesLoading" description="暂无消息" />
@@ -121,7 +121,7 @@
                 <strong>世界聊天窗口</strong>
                 <div class="toolbar-actions">
                   <el-button v-if="auth.isAdmin" @click="openMuteList">禁言列表</el-button>
-                  <el-button @click="loadWorldMessages">刷新</el-button>
+                  <el-button @click="loadWorldMessages(false)">刷新</el-button>
                 </div>
               </div>
               <div class="message-list" v-loading="worldLoading">
@@ -253,14 +253,14 @@
       </el-table>
       <template #footer>
         <el-button @click="muteListVisible = false">关闭</el-button>
-        <el-button @click="loadWorldMutes">刷新</el-button>
+        <el-button @click="loadWorldMutes(false)">刷新</el-button>
       </template>
     </el-dialog>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MessageContent from '@/components/MessageContent.vue'
 import { listNotices } from '@/api/notices'
@@ -286,6 +286,13 @@ import type {
   WorldMute,
 } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import { createCacheKey, readCache, writeCache } from '@/utils/cache'
+import {
+  latestNoticeTimestamp,
+  latestSupportConversationTimestamp,
+  latestSupportMessageTimestamp,
+  writeSeenTimestamp,
+} from '@/utils/unread'
 import { formatBeijingTime } from '@/utils/time'
 
 const activeTab = ref('notices')
@@ -305,6 +312,8 @@ const mutesLoading = ref(false)
 const sending = ref(false)
 const muting = ref(false)
 const unmutingUid = ref('')
+const autoRefreshTimer = ref<number | null>(null)
+const autoRefreshBusy = ref(false)
 const messageText = ref('')
 const worldText = ref('')
 const chatInputAutosize = { minRows: 2, maxRows: 10 }
@@ -315,6 +324,49 @@ const muteForm = ref({
   nickname: '',
   reason: '',
 })
+const NOTICES_CACHE_TTL = 1000 * 60 * 10
+
+function noticesCacheKey() {
+  return createCacheKey('messages:notices:v1', {
+    role: auth.isAdmin ? 'admin' : 'normal',
+  })
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer.value !== null) {
+    window.clearInterval(autoRefreshTimer.value)
+    autoRefreshTimer.value = null
+  }
+}
+
+function syncAutoRefresh() {
+  stopAutoRefresh()
+  if (document.hidden) return
+  if (activeTab.value !== 'support' && activeTab.value !== 'world') return
+  autoRefreshTimer.value = window.setInterval(() => {
+    void refreshActiveChat(true)
+  }, 3000)
+}
+
+async function refreshActiveChat(silent = true) {
+  if (autoRefreshBusy.value || document.hidden) return
+  autoRefreshBusy.value = true
+  try {
+    if (activeTab.value === 'support') {
+      if (auth.isAdmin) {
+        await loadConversations(silent)
+      } else {
+        await loadMessages(silent)
+      }
+      return
+    }
+    if (activeTab.value === 'world') {
+      await loadWorldMessages(silent)
+    }
+  } finally {
+    autoRefreshBusy.value = false
+  }
+}
 
 function senderText(sender?: string) {
   if (sender === 'admin') return '管理员'
@@ -371,13 +423,31 @@ function isWorldUserMuted(message: WorldMessage) {
   return auth.isAdmin && worldMutes.value.some((item) => item.public_uid === message.public_uid)
 }
 
-async function loadNotices() {
-  noticesLoading.value = true
+async function loadNotices(force = false) {
+  if (!force) {
+    const cached = readCache<Notice[]>(noticesCacheKey(), NOTICES_CACHE_TTL)
+    if (cached) {
+      notices.value = cached
+      if (!selectedNotice.value || !notices.value.some((item) => item.id === selectedNotice.value?.id)) {
+        selectedNotice.value = notices.value[0] || null
+      }
+      writeSeenTimestamp(
+        'notices',
+        auth.user?.public_uid || auth.user?.id || '',
+        latestNoticeTimestamp(notices.value),
+      )
+    }
+    noticesLoading.value = !cached
+  } else {
+    noticesLoading.value = true
+  }
   try {
     notices.value = await listNotices()
     if (!selectedNotice.value || !notices.value.some((item) => item.id === selectedNotice.value?.id)) {
       selectedNotice.value = notices.value[0] || null
     }
+    writeCache(noticesCacheKey(), notices.value)
+    writeSeenTimestamp('notices', auth.user?.public_uid || auth.user?.id || '', latestNoticeTimestamp(notices.value))
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -385,32 +455,52 @@ async function loadNotices() {
   }
 }
 
-async function loadMessages() {
+async function loadMessages(silent = false) {
   if (auth.isAdmin) return
-  messagesLoading.value = true
+  if (!silent) {
+    messagesLoading.value = true
+  }
   try {
     messages.value = await listSupportMessages()
+    writeSeenTimestamp(
+      'support',
+      auth.user?.public_uid || auth.user?.id || '',
+      latestSupportMessageTimestamp(messages.value),
+    )
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
-    messagesLoading.value = false
+    if (!silent) {
+      messagesLoading.value = false
+    }
   }
 }
 
-async function loadConversations() {
+async function loadConversations(silent = false) {
   if (!auth.isAdmin) return
-  conversationsLoading.value = true
+  if (!silent) {
+    conversationsLoading.value = true
+  }
   try {
     conversations.value = await listAdminSupportConversations()
+    writeSeenTimestamp(
+      'admin-support',
+      auth.user?.public_uid || auth.user?.id || '',
+      latestSupportConversationTimestamp(conversations.value),
+    )
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
-    conversationsLoading.value = false
+    if (!silent) {
+      conversationsLoading.value = false
+    }
   }
 }
 
-async function loadWorldMessages() {
-  worldLoading.value = true
+async function loadWorldMessages(silent = false) {
+  if (!silent) {
+    worldLoading.value = true
+  }
   try {
     worldMessages.value = await listWorldMessages()
     if (auth.isAdmin) {
@@ -419,19 +509,25 @@ async function loadWorldMessages() {
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
-    worldLoading.value = false
+    if (!silent) {
+      worldLoading.value = false
+    }
   }
 }
 
-async function loadWorldMutes() {
+async function loadWorldMutes(silent = false) {
   if (!auth.isAdmin) return
-  mutesLoading.value = true
+  if (!silent) {
+    mutesLoading.value = true
+  }
   try {
     worldMutes.value = await listWorldMutes()
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
-    mutesLoading.value = false
+    if (!silent) {
+      mutesLoading.value = false
+    }
   }
 }
 
@@ -534,17 +630,40 @@ async function submitUnmuteWorldUser(publicUid: string) {
   }
 }
 
+function handleVisibilityChange() {
+  syncAutoRefresh()
+  if (!document.hidden) {
+    void refreshActiveChat(true)
+  }
+}
+
 watch(activeTab, (tab) => {
-  if (tab === 'notices') void loadNotices()
+  stopAutoRefresh()
+  if (tab === 'notices') {
+    void loadNotices()
+    return
+  }
   if (tab === 'support') {
     if (auth.isAdmin) void loadConversations()
     else void loadMessages()
+    syncAutoRefresh()
+    return
   }
-  if (tab === 'world') void loadWorldMessages()
+  if (tab === 'world') {
+    void loadWorldMessages()
+    syncAutoRefresh()
+  }
 })
 
 onMounted(() => {
   void loadNotices()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  syncAutoRefresh()
+})
+
+onBeforeUnmount(() => {
+  stopAutoRefresh()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 

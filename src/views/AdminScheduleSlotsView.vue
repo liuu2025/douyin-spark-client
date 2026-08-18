@@ -15,7 +15,7 @@
             <strong>轮次列表</strong>
             <el-segmented v-model="sortMode" :options="sortOptions" />
           </div>
-          <el-button @click="loadSlots">刷新</el-button>
+          <el-button @click="loadSlots(true)">刷新</el-button>
         </div>
 
         <div v-if="sortMode === 'status'" class="slot-groups" v-loading="loading">
@@ -112,6 +112,7 @@ import {
 } from '@/api/schedule'
 import { errorText } from '@/api/http'
 import type { SendScheduleSlot } from '@/api/types'
+import { createCacheKey, readCache, writeCache } from '@/utils/cache'
 
 const SlotHeader = defineComponent({
   setup() {
@@ -180,6 +181,7 @@ const saving = ref(false)
 const dialogOpen = ref(false)
 const sortMode = ref<'time' | 'status'>('time')
 const editingSlot = ref<SendScheduleSlot | null>(null)
+const SLOTS_CACHE_TTL = 1000 * 30
 const form = reactive({
   name: '',
   mode: 'fixed_time',
@@ -187,6 +189,10 @@ const form = reactive({
   interval_hours: 6,
   active: true,
 })
+
+function slotsCacheKey() {
+  return createCacheKey('admin-schedule-slots:list:v1')
+}
 
 const sortedSlots = computed(() => [...slots.value].sort(compareByTime))
 const activeSlots = computed(() =>
@@ -237,10 +243,19 @@ function buildPayload() {
   }
 }
 
-async function loadSlots() {
-  loading.value = true
+async function loadSlots(force = false) {
+  if (!force) {
+    const cached = readCache<SendScheduleSlot[]>(slotsCacheKey(), SLOTS_CACHE_TTL)
+    if (cached) {
+      slots.value = cached
+    }
+    loading.value = !cached
+  } else {
+    loading.value = true
+  }
   try {
     slots.value = await listAdminScheduleSlots()
+    writeCache(slotsCacheKey(), slots.value)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -268,7 +283,7 @@ async function saveSlot() {
       ElMessage.success('轮次已新增。')
     }
     dialogOpen.value = false
-    await loadSlots()
+    await loadSlots(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -285,13 +300,13 @@ async function toggleSlot(slot: SendScheduleSlot) {
       await enableAdminScheduleSlot(slot.id)
       ElMessage.success('轮次已启用。')
     }
-    await loadSlots()
+    await loadSlots(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   }
 }
 
-onMounted(loadSlots)
+onMounted(() => loadSlots())
 </script>
 
 <style scoped>

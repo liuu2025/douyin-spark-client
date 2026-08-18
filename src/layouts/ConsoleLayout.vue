@@ -30,10 +30,13 @@
           <MonitorSmartphone :size="18" />
           <span>抖音号</span>
         </el-menu-item>
-        <el-menu-item index="/messages">
-          <MessageSquareText :size="18" />
-          <span>消息中心</span>
-        </el-menu-item>
+          <el-menu-item index="/messages">
+            <span class="menu-item-with-badge">
+              <MessageSquareText :size="18" />
+              <span>消息中心</span>
+              <el-badge v-if="hasUnread" is-dot class="menu-item-dot" />
+            </span>
+          </el-menu-item>
         <el-menu-item index="/assistant">
           <Bot :size="18" />
           <span>智能客服</span>
@@ -127,9 +130,11 @@
             </el-button>
           </el-tooltip>
           <el-tooltip content="消息中心">
-            <el-button circle @click="$router.push('/messages')">
-              <Bell :size="18" />
-            </el-button>
+            <el-badge :hidden="!hasUnread" is-dot class="topbar-badge">
+              <el-button circle @click="$router.push('/messages')">
+                <Bell :size="18" />
+              </el-button>
+            </el-badge>
           </el-tooltip>
           <el-dropdown trigger="click" @command="handleCommand">
             <el-button class="account-button">
@@ -157,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Bell,
@@ -182,6 +187,9 @@ import { useAuthStore } from '@/stores/auth'
 import AssistantAutoSendDialog from '@/components/AssistantAutoSendDialog.vue'
 import FloatingAssistantWidget from '@/components/FloatingAssistantWidget.vue'
 import HelpDrawer from '@/components/HelpDrawer.vue'
+import { listNotices } from '@/api/notices'
+import { listAdminSupportConversations, listSupportMessages } from '@/api/support'
+import { hasAdminSupportUnread, hasNoticeUpdates, hasUserUnreadSupport, readSeenTimestamp } from '@/utils/unread'
 
 const route = useRoute()
 const router = useRouter()
@@ -189,6 +197,9 @@ const auth = useAuthStore()
 const helpOpen = ref(false)
 const isDarkMode = ref(false)
 const sidebarCollapsed = ref(false)
+const hasUnread = ref(false)
+const unreadTimer = ref<number | null>(null)
+const unreadBusy = ref(false)
 const sidebarWidth = computed(() => (sidebarCollapsed.value ? '72px' : '236px'))
 
 onMounted(() => {
@@ -196,6 +207,92 @@ onMounted(() => {
   isDarkMode.value = storedTheme !== 'light'
   sidebarCollapsed.value = localStorage.getItem('douyin-spark-sidebar') === 'collapsed'
   applyTheme()
+})
+
+watch(
+  () => [auth.user?.public_uid, auth.user?.id, auth.isAdmin],
+  () => {
+    void refreshUnreadState()
+    syncUnreadPolling()
+  },
+  { immediate: true },
+)
+
+function userKey() {
+  return auth.user?.public_uid || auth.user?.id || ''
+}
+
+function stopUnreadPolling() {
+  if (unreadTimer.value !== null) {
+    window.clearInterval(unreadTimer.value)
+    unreadTimer.value = null
+  }
+}
+
+function syncUnreadPolling() {
+  stopUnreadPolling()
+  if (!auth.isAuthed || !userKey()) {
+    hasUnread.value = false
+    return
+  }
+  if (document.hidden) return
+  unreadTimer.value = window.setInterval(() => {
+    void refreshUnreadState(true)
+  }, 30000)
+}
+
+async function refreshUnreadState(silent = false) {
+  if (unreadBusy.value || document.hidden) return
+  if (!auth.isAuthed || !userKey()) {
+    hasUnread.value = false
+    return
+  }
+  unreadBusy.value = true
+  try {
+    const key = userKey()
+    if (auth.isAdmin) {
+      const conversations = await listAdminSupportConversations(50)
+      const seenAt = readSeenTimestamp('admin-support', key)
+      hasUnread.value = hasAdminSupportUnread(conversations, seenAt)
+      return
+    }
+
+    const [messages, notices] = await Promise.all([listSupportMessages(20), listNotices(20)])
+    const supportSeenAt = readSeenTimestamp('support', key)
+    const noticeSeenAt = readSeenTimestamp('notices', key)
+    hasUnread.value =
+      hasUserUnreadSupport(messages, supportSeenAt) || hasNoticeUpdates(notices, noticeSeenAt)
+  } catch {
+    if (!silent) {
+      hasUnread.value = false
+    }
+  } finally {
+    unreadBusy.value = false
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    stopUnreadPolling()
+    return
+  }
+  void refreshUnreadState(true)
+  syncUnreadPolling()
+}
+
+function handleSeenUpdated() {
+  void refreshUnreadState(true)
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('douyin-spark:seen-updated', handleSeenUpdated)
+})
+
+onBeforeUnmount(() => {
+  stopUnreadPolling()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('douyin-spark:seen-updated', handleSeenUpdated)
 })
 
 const activeMenu = computed(() => {
@@ -420,6 +517,21 @@ function applyTheme() {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.topbar-badge {
+  line-height: 0;
+}
+
+.menu-item-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.menu-item-dot {
+  margin-left: auto;
 }
 
 .account-button {

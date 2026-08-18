@@ -18,9 +18,9 @@
               <el-option label="已暂停" value="paused" />
               <el-option label="已结束" value="ended" />
             </el-select>
-            <el-button @click="loadActivities">筛选</el-button>
+            <el-button @click="loadActivities()">筛选</el-button>
           </div>
-          <el-button :loading="loading" @click="loadActivities">刷新</el-button>
+          <el-button :loading="loading" @click="loadActivities(true)">刷新</el-button>
         </div>
 
         <el-table :data="activities" v-loading="loading" height="560">
@@ -163,6 +163,7 @@ import {
 import { errorText } from '@/api/http'
 import type { Activity, ActivityClaim } from '@/api/types'
 import { copyText } from '@/utils/clipboard'
+import { createCacheKey, readCache, writeCache } from '@/utils/cache'
 import { formatBeijingTime } from '@/utils/time'
 
 const statusOptions = [
@@ -184,6 +185,13 @@ const claimsOpen = ref(false)
 const filters = reactive({
   status: '',
 })
+const ACTIVITIES_CACHE_TTL = 1000 * 45
+
+function activitiesCacheKey() {
+  return createCacheKey('admin-activities:list:v1', {
+    status: filters.status || '',
+  })
+}
 const form = reactive({
   title: '',
   description: '',
@@ -194,10 +202,18 @@ const form = reactive({
   ends_at: '',
 })
 
-onMounted(loadActivities)
+onMounted(() => loadActivities())
 
-async function loadActivities() {
-  loading.value = true
+async function loadActivities(force = false) {
+  if (!force) {
+    const cached = readCache<Activity[]>(activitiesCacheKey(), ACTIVITIES_CACHE_TTL)
+    if (cached) {
+      activities.value = cached
+    }
+    loading.value = !cached
+  } else {
+    loading.value = true
+  }
   try {
     const data = await listAdminActivities({
       page: 1,
@@ -205,6 +221,7 @@ async function loadActivities() {
       status: filters.status || undefined,
     })
     activities.value = data.items || []
+    writeCache(activitiesCacheKey(), activities.value)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -240,7 +257,7 @@ async function save() {
       ElMessage.success('活动已创建。')
     }
     dialogOpen.value = false
-    await loadActivities()
+    await loadActivities(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -264,7 +281,7 @@ async function changeStatus(action: () => Promise<Activity>, message: string) {
   try {
     await action()
     ElMessage.success(message)
-    await loadActivities()
+    await loadActivities(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   }

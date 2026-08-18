@@ -99,6 +99,7 @@ import { ElMessage } from 'element-plus'
 import { claimActivity, listActivities, listMyActivityClaims } from '@/api/activities'
 import { errorText } from '@/api/http'
 import type { Activity, ActivityClaim, RedeemCode } from '@/api/types'
+import { createCacheKey, readCache, writeCache } from '@/utils/cache'
 import { copyText } from '@/utils/clipboard'
 import { formatBeijingTime } from '@/utils/time'
 
@@ -109,18 +110,37 @@ const loading = ref(false)
 const claimsLoading = ref(false)
 const claimingId = ref('')
 const claimDialogOpen = ref(false)
+const ACTIVITIES_CACHE_TTL = 1000 * 60 * 2
+const CLAIMS_CACHE_TTL = 1000 * 60
+
+function activitiesCacheKey() {
+  return 'activities:list:v1'
+}
+
+function claimsCacheKey() {
+  return 'activities:claims:v1'
+}
 
 onMounted(loadAll)
 
-async function loadAll() {
-  await Promise.all([loadActivities(), loadClaims()])
+async function loadAll(force = false) {
+  await Promise.all([loadActivities(force), loadClaims(force)])
 }
 
-async function loadActivities() {
-  loading.value = true
+async function loadActivities(force = false) {
+  if (!force) {
+    const cached = readCache<Activity[]>(activitiesCacheKey(), ACTIVITIES_CACHE_TTL)
+    if (cached) {
+      activities.value = cached
+    }
+    loading.value = !cached
+  } else {
+    loading.value = true
+  }
   try {
     const data = await listActivities({ page: 1, page_size: 100 })
     activities.value = data.items || []
+    writeCache(activitiesCacheKey(), activities.value)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -128,10 +148,19 @@ async function loadActivities() {
   }
 }
 
-async function loadClaims() {
-  claimsLoading.value = true
+async function loadClaims(force = false) {
+  if (!force) {
+    const cached = readCache<ActivityClaim[]>(claimsCacheKey(), CLAIMS_CACHE_TTL)
+    if (cached) {
+      claims.value = cached
+    }
+    claimsLoading.value = !cached
+  } else {
+    claimsLoading.value = true
+  }
   try {
     claims.value = await listMyActivityClaims()
+    writeCache(claimsCacheKey(), claims.value)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
@@ -146,7 +175,7 @@ async function claim(activity: Activity) {
     claimedCode.value = result.code || result.claim.redeem_code || null
     claimDialogOpen.value = true
     ElMessage.success('活动奖励领取成功。')
-    await loadAll()
+    await loadAll(true)
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
