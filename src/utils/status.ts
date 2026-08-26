@@ -22,6 +22,13 @@ export function loginStateTag(state?: LoginState | string) {
 
 export function sessionStatusText(status?: LoginSessionStatus) {
   const map: Record<string, string> = {
+    created: '登录会话已创建',
+    waiting_qr_scan: '等待扫码',
+    waiting_sms_code: '等待短信验证码',
+    sms_code_invalid: '短信验证码错误',
+    sms_code_expired: '短信验证码已过期',
+    sms_retry_later: '需要重新发送短信验证码',
+    remote_browser_required: '需要在远程浏览器中完成验证',
     remote_browser_starting: '正在启动远程浏览器',
     waiting_manual_login: '等待用户在远程浏览器中完成登录',
     login_confirming: '已检测到登录成功，等待确认',

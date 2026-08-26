@@ -30,7 +30,16 @@ export type LoginState =
   | 'check_failed'
   | 'transferred'
 
+export type LoginMode = 'qr_sms' | 'remote_browser'
+
 export type LoginSessionStatus =
+  | 'created'
+  | 'waiting_qr_scan'
+  | 'waiting_sms_code'
+  | 'sms_code_invalid'
+  | 'sms_code_expired'
+  | 'sms_retry_later'
+  | 'remote_browser_required'
   | 'remote_browser_starting'
   | 'waiting_manual_login'
   | 'login_confirming'
@@ -87,6 +96,10 @@ export interface LoginSession {
   id: string
   user_id?: string
   status: LoginSessionStatus
+  qr_image_url?: string
+  qr_generated_at?: string
+  masked_phone?: string
+  resend_count?: number
   remote_status?: string
   remote_url?: string
   resolved_douyin_id?: string

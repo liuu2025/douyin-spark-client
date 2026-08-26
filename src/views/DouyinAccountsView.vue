@@ -51,7 +51,7 @@
       </div>
     </div>
 
-    <LoginSessionDrawer v-model="loginDrawerOpen" auto-start @completed="loadAccounts" />
+    <LoginSessionDrawer v-model="loginDrawerOpen" @completed="loadAccounts" />
   </section>
 </template>
 

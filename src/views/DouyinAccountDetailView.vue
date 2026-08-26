@@ -164,7 +164,7 @@
       </div>
     </div>
 
-    <LoginSessionDrawer v-model="loginDrawerOpen" auto-start @completed="reloadAll" />
+    <LoginSessionDrawer v-model="loginDrawerOpen" @completed="reloadAll" />
     <SendTaskDialog
       v-model="taskDialogOpen"
       :douyin-id="douyinId"
