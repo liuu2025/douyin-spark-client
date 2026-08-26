@@ -30,6 +30,16 @@ const routes: RouteRecordRaw[] = [
         props: true,
       },
       {
+        path: 'douyin-accounts/:douyinId/send-runs/:runId/detail',
+        name: 'sendRunDetail',
+        component: () => import('@/views/SendRunDetailView.vue'),
+      },
+      {
+        path: 'douyin-accounts/:douyinId/send-runs/:runId/targets',
+        name: 'sendRunTargets',
+        component: () => import('@/views/SendRunDetailView.vue'),
+      },
+      {
         path: 'messages',
         name: 'messages',
         component: () => import('@/views/MessagesView.vue'),
@@ -93,6 +103,30 @@ const routes: RouteRecordRaw[] = [
         path: 'admin/send-runs',
         name: 'adminSendRuns',
         component: () => import('@/views/AdminSendRunsView.vue'),
+        meta: { admin: true },
+      },
+      {
+        path: 'admin/send-runs/:runId/detail',
+        name: 'adminGlobalRunDetail',
+        component: () => import('@/views/SendRunDetailView.vue'),
+        meta: { admin: true },
+      },
+      {
+        path: 'admin/send-runs/:runId/targets',
+        name: 'adminGlobalRunTargets',
+        component: () => import('@/views/SendRunDetailView.vue'),
+        meta: { admin: true },
+      },
+      {
+        path: 'admin/douyin-accounts/:douyinId/send-runs/:runId/detail',
+        name: 'adminAccountRunDetail',
+        component: () => import('@/views/SendRunDetailView.vue'),
+        meta: { admin: true },
+      },
+      {
+        path: 'admin/douyin-accounts/:douyinId/send-runs/:runId/targets',
+        name: 'adminAccountRunTargets',
+        component: () => import('@/views/SendRunDetailView.vue'),
         meta: { admin: true },
       },
       {

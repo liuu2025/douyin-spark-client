@@ -278,7 +278,7 @@
               :filter-fields="detailRunFilterFields"
               :filter-options="detailRunFilterOptions"
               show-scope-filters
-              show-slot-column
+              admin-mode
               height="calc(100vh - 360px)"
             />
           </el-tab-pane>
@@ -321,6 +321,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getAdminDouyinAccount,
@@ -352,6 +353,7 @@ import {
 import { formatBeijingTime } from '@/utils/time'
 
 const accounts = ref<DouyinAccount[]>([])
+const route = useRoute()
 const selectedAccount = ref<DouyinAccount | null>(null)
 const tasks = ref<SendTask[]>([])
 const scheduleSlots = ref<SendScheduleSlot[]>([])
@@ -553,6 +555,13 @@ async function openDetail(account: DouyinAccount) {
   }
   await loadDetailTasks()
   await loadSelectedLoginStatus()
+}
+
+async function reopenDetailFromQuery() {
+  const douyinId = String(route.query.douyinId || '')
+  if (!douyinId) return
+  await openDetail({ douyin_id: douyinId })
+  detailTab.value = route.query.tab === 'runs' ? 'runs' : 'details'
 }
 
 async function loadSelectedLoginStatus() {
@@ -837,6 +846,7 @@ onMounted(() => {
   void loadAccounts()
   void loadFilterOptions()
   void loadRunFilterSlots()
+  void reopenDetailFromQuery()
 })
 </script>
 

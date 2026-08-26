@@ -39,6 +39,30 @@ export interface SendRunList {
   page_size: number
 }
 
+export interface SendRunCandidate {
+  id: string
+  run_id: string
+  target_type: 'friend' | 'group' | string
+  sequence: number
+  display_name?: string
+  group_name?: string
+  douyin_id?: string
+  member_count?: number
+  douyin_id_status?: string
+  profile_url_status?: string
+  member_count_status?: string
+  validation_status?: string
+  send_status?: string
+  error_code?: string
+  error_message?: string
+  sent_at?: string
+}
+
+export interface SendRunCandidates {
+  friends: SendRunCandidate[]
+  groups: SendRunCandidate[]
+}
+
 function pickRunList(data: unknown, fallbackPageSize: number): SendRunList {
   if (data && typeof data === 'object') {
     const payload = data as {
@@ -102,6 +126,14 @@ export async function listTaskRuns(taskId: string, limit = 50) {
 export async function listAccountRuns(douyinId: string, params: SendRunQuery = { limit: 50 }) {
   const { data } = await http.get(`/douyin-accounts/${douyinId}/send-runs`, { params })
   return pickRunList(data, params.page_size || params.limit || 50)
+}
+
+export async function getSendRunCandidates(runId: string) {
+  const { data } = await http.get<SendRunCandidates>(`/send-runs/${runId}/candidates`)
+  return {
+    friends: data.friends || [],
+    groups: data.groups || [],
+  }
 }
 
 export async function listTaskSlots(taskId: string) {

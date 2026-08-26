@@ -33,10 +33,13 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="最近验证" min-width="180">
-            <template #default="{ row }">{{ formatBeijingTime(row.last_check_at) }}</template>
+          <el-table-column label="轮询资格" min-width="200">
+            <template #default="{ row }">
+              <el-tag :type="entitlementTag(row.polling_entitlement_status)">
+                {{ entitlementText(row) }}
+              </el-tag>
+            </template>
           </el-table-column>
-          <el-table-column prop="last_error_message" label="最近错误" min-width="220" />
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="$router.push(`/douyin-accounts/${row.douyin_id}`)">
@@ -65,6 +68,27 @@ import { formatBeijingTime } from '@/utils/time'
 const accounts = ref<DouyinAccount[]>([])
 const loading = ref(false)
 const loginDrawerOpen = ref(false)
+
+function entitlementText(account: DouyinAccount) {
+  const status = account.polling_entitlement_status
+  if (status === 'active' || status === 'valid') {
+    if (!account.polling_eligible_until) return '已开通'
+    const expiresAt = new Date(account.polling_eligible_until)
+    if (Number.isNaN(expiresAt.getTime())) return `有效至 ${account.polling_eligible_until}`
+    const diffMs = expiresAt.getTime() - Date.now()
+    if (diffMs <= 0) return '已过期'
+    const days = Math.ceil(diffMs / (24 * 60 * 60 * 1000))
+    return `剩余 ${days} 天，有效至 ${formatBeijingTime(account.polling_eligible_until)}`
+  }
+  if (status === 'expired') return '已过期'
+  return '未开通'
+}
+
+function entitlementTag(status?: string) {
+  if (status === 'active' || status === 'valid') return 'success'
+  if (status === 'expired') return 'warning'
+  return 'info'
+}
 
 async function loadAccounts() {
   loading.value = true

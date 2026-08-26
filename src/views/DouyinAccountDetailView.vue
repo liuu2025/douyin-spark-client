@@ -157,7 +157,6 @@
               :filter-fields="runFilterFields"
               :filter-options="runFilterOptions"
               show-scope-filters
-              show-slot-column
               height="420"
             />
           </el-tab-pane>
@@ -177,6 +176,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getDouyinAccount, getLoginStatus, setPolling, verifyLoginStatus } from '@/api/douyin'
 import { ApiError, errorText } from '@/api/http'
@@ -203,6 +203,7 @@ import { loginStateTag, loginStateText, runStatusText } from '@/utils/status'
 import { formatBeijingTime } from '@/utils/time'
 
 const props = defineProps<{ douyinId: string }>()
+const route = useRoute()
 
 const account = ref<DouyinAccount | null>(null)
 const loginStatus = ref<LoginStatusResponse | null>(null)
@@ -219,7 +220,7 @@ const loginDrawerOpen = ref(false)
 const taskDialogOpen = ref(false)
 const editingTask = ref<SendTask | null>(null)
 const runsPanel = ref<InstanceType<typeof SendRunRecordsPanel> | null>(null)
-const activeTab = ref('settings')
+const activeTab = ref(route.query.tab === 'runs' ? 'runs' : 'settings')
 const redeemCode = ref('')
 const runFilterFields: Array<'task_id' | 'slot_id' | 'error_code'> = [
   'task_id',

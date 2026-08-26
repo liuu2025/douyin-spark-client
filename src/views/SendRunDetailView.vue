@@ -1,0 +1,279 @@
+<template>
+  <section>
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">运行记录详情</h1>
+        <p class="page-subtitle">周期开始：{{ cycleStartText }}</p>
+      </div>
+      <el-button @click="goBack">返回运行记录</el-button>
+    </div>
+
+    <div class="content-panel">
+      <div class="panel-body record-detail-body">
+        <div class="detail-toolbar">
+          <el-segmented v-model="activeTab" :options="detailTabs" />
+          <span class="detail-context">运行ID：{{ run?.id || runId }}</span>
+        </div>
+
+        <el-skeleton v-if="loadingRun" :rows="5" animated />
+        <el-empty v-else-if="!run" description="未找到这条运行记录" />
+        <template v-else>
+          <el-descriptions v-if="activeTab === 'run'" :column="1" border class="run-descriptions">
+            <el-descriptions-item label="周期开始">{{ formatBeijingTime(run.cycle_start_at) }}</el-descriptions-item>
+            <el-descriptions-item label="轮次ID">{{ run.slot_id || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="运行ID">{{ run.id || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="任务ID">{{ run.task_id || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="周期ID">{{ run.cycle_id || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="开始时间">{{ formatBeijingTime(run.started_at) }}</el-descriptions-item>
+            <el-descriptions-item label="结束时间">{{ formatBeijingTime(run.finished_at) }}</el-descriptions-item>
+            <el-descriptions-item label="错误码">{{ run.last_error_code || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="最近错误">{{ run.last_error_message || '-' }}</el-descriptions-item>
+          </el-descriptions>
+
+          <el-table
+            v-else-if="activeTab === 'friends'"
+            :data="friends"
+            :loading="loadingCandidates"
+            height="calc(100vh - 280px)"
+            empty-text="暂无本次发送好友"
+            class="target-table"
+          >
+            <el-table-column type="index" label="序号" width="82" />
+            <el-table-column prop="display_name" label="好友备注/昵称" min-width="180" show-overflow-tooltip />
+            <el-table-column label="好友抖音号" min-width="180" show-overflow-tooltip>
+              <template #default="{ row }">{{ friendDouyinText(row) }}</template>
+            </el-table-column>
+            <el-table-column label="发送状态" min-width="130">
+              <template #default="{ row }">
+                <el-tag :type="statusTag(row.send_status)">{{ statusText(row.send_status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="失败原因" min-width="260" show-overflow-tooltip>
+              <template #default="{ row }">{{ failureReason(row) }}</template>
+            </el-table-column>
+          </el-table>
+
+          <el-table
+            v-else
+            :data="groups"
+            :loading="loadingCandidates"
+            height="calc(100vh - 280px)"
+            empty-text="暂无本次发送群聊"
+            class="target-table"
+          >
+            <el-table-column type="index" label="序号" width="82" />
+            <el-table-column prop="group_name" label="群名" min-width="220" show-overflow-tooltip />
+            <el-table-column label="群人数" min-width="130">
+              <template #default="{ row }">{{ groupMemberCountText(row) }}</template>
+            </el-table-column>
+            <el-table-column label="发送状态" min-width="130">
+              <template #default="{ row }">
+                <el-tag :type="statusTag(row.send_status)">{{ statusText(row.send_status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="失败原因" min-width="300" show-overflow-tooltip>
+              <template #default="{ row }">{{ failureReason(row) }}</template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { getAdminSendRunCandidates, listAdminAccountRuns, listAdminSendRuns } from '@/api/adminDouyin'
+import { errorText } from '@/api/http'
+import {
+  getSendRunCandidates,
+  listAccountRuns,
+  type SendRunCandidate,
+  type SendRunQuery,
+} from '@/api/sendTasks'
+import type { SendRun } from '@/api/types'
+import { useAuthStore } from '@/stores/auth'
+import { runStatusText } from '@/utils/status'
+import { formatBeijingTime } from '@/utils/time'
+
+type DetailTab = 'run' | 'friends' | 'groups'
+
+const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+const run = ref<SendRun | null>(null)
+const friends = ref<SendRunCandidate[]>([])
+const groups = ref<SendRunCandidate[]>([])
+const loadingRun = ref(false)
+const loadingCandidates = ref(false)
+const detailTabs = [
+  { label: '运行详情', value: 'run' },
+  { label: '本次发送好友列表', value: 'friends' },
+  { label: '本次发送群聊列表', value: 'groups' },
+]
+
+const runId = computed(() => String(route.params.runId || ''))
+const douyinId = computed(() => String(route.params.douyinId || route.query.douyinId || ''))
+const cycleStartText = computed(() => formatBeijingTime(run.value?.cycle_start_at || String(route.query.cycleStart || '')))
+const isAdminGlobal = computed(
+  () => route.name === 'adminGlobalRunDetail' || route.name === 'adminGlobalRunTargets',
+)
+const isAdminAccount = computed(
+  () => route.name === 'adminAccountRunDetail' || route.name === 'adminAccountRunTargets',
+)
+const useAdminApi = computed(
+  () => auth.isAdmin || isAdminGlobal.value || isAdminAccount.value,
+)
+const activeTab = ref<DetailTab>(initialTab())
+
+function initialTab(): DetailTab {
+  const tab = String(route.query.tab || '')
+  if (tab === 'friends' || tab === 'groups') return tab
+  if (route.name === 'sendRunTargets' || route.name === 'adminGlobalRunTargets' || route.name === 'adminAccountRunTargets') {
+    return 'friends'
+  }
+  return 'run'
+}
+
+async function loadRun() {
+  const cachedRun = sessionStorage.getItem(`douyin-spark-run:${runId.value}`)
+  if (cachedRun) {
+    try {
+      const parsed = JSON.parse(cachedRun) as SendRun
+      if (String(parsed.id) === runId.value) run.value = parsed
+    } catch {
+      sessionStorage.removeItem(`douyin-spark-run:${runId.value}`)
+    }
+  }
+
+  loadingRun.value = true
+  try {
+    const query: SendRunQuery = { page: 1, page_size: 100, limit: 100 }
+    if (route.query.douyinId) query.douyin_id = String(route.query.douyinId)
+    if (route.query.taskId) query.task_id = String(route.query.taskId)
+    const data = isAdminGlobal.value
+      ? await listAdminSendRuns(query)
+      : useAdminApi.value
+        ? await listAdminAccountRuns(douyinId.value, query)
+        : await listAccountRuns(douyinId.value, query)
+    const refreshedRun = data.items.find((item) => String(item.id) === runId.value)
+    if (refreshedRun) run.value = refreshedRun
+  } catch (error) {
+    ElMessage.error(errorText(error))
+  } finally {
+    loadingRun.value = false
+  }
+}
+
+async function loadCandidates() {
+  loadingCandidates.value = true
+  try {
+    const data = useAdminApi.value
+      ? await getAdminSendRunCandidates(runId.value)
+      : await getSendRunCandidates(runId.value)
+    friends.value = data.friends
+    groups.value = data.groups
+  } catch (error) {
+    ElMessage.error(errorText(error))
+  } finally {
+    loadingCandidates.value = false
+  }
+}
+
+function statusText(status?: string) {
+  return runStatusText(status)
+}
+
+function statusTag(status?: string) {
+  if (status === 'sent') return 'success'
+  if (status === 'partial_success') return 'warning'
+  if (status === 'failed') return 'danger'
+  if (status === 'skipped') return 'info'
+  return 'primary'
+}
+
+function failureReason(row: SendRunCandidate) {
+  return row.error_message || row.error_code || '-'
+}
+
+function friendDouyinText(row: SendRunCandidate) {
+  if (row.douyin_id) return row.douyin_id
+  if (row.douyin_id_status === 'failed') return '读取失败'
+  return '未读取'
+}
+
+function groupMemberCountText(row: SendRunCandidate) {
+  if (typeof row.member_count === 'number' && row.member_count > 0) return row.member_count
+  if (row.member_count_status === 'failed') return '读取失败'
+  return '-'
+}
+
+function goBack() {
+  if (isAdminGlobal.value) {
+    void router.push('/admin/send-runs')
+  } else if (isAdminAccount.value) {
+    void router.push({
+      path: '/admin/douyin-accounts',
+      query: { douyinId: douyinId.value, tab: 'runs' },
+    })
+  } else {
+    void router.push({
+      path: `/douyin-accounts/${encodeURIComponent(douyinId.value)}`,
+      query: { tab: 'runs' },
+    })
+  }
+}
+
+onMounted(() => {
+  void Promise.all([loadRun(), loadCandidates()])
+})
+</script>
+
+<style scoped>
+.record-detail-body {
+  display: grid;
+  gap: 16px;
+}
+
+.detail-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+}
+
+.detail-context {
+  max-width: 42%;
+  overflow: hidden;
+  color: var(--app-text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-descriptions :deep(.el-descriptions__label) {
+  width: 120px;
+}
+
+.run-descriptions :deep(.el-descriptions__content) {
+  word-break: break-all;
+}
+
+.target-table :deep(.cell) {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .detail-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .detail-context {
+    max-width: 100%;
+  }
+}
+</style>

@@ -11,7 +11,7 @@
       <el-form :model="form" label-position="top" class="drawer-form">
         <div class="dialog-toolbar">
           <span class="muted">配置这个抖音号要使用的发送话术、发送对象和参与轮次。</span>
-          <el-button link type="primary" @click="resetDefaults">恢复推荐默认设置</el-button>
+          <el-button link type="primary" @click="resetDefaults">恢复默认设置</el-button>
         </div>
 
         <div class="task-switch-row">
@@ -44,7 +44,6 @@
                   v-model="form.message_template"
                   type="textarea"
                   :rows="14"
-                  placeholder="一行一句话术，发送时系统会随机选择其中一句"
                 />
                 <div class="speech-actions">
                   <el-button type="primary" plain @click="openSpeechFilePicker">导入 txt 话术</el-button>
@@ -96,7 +95,6 @@
                   <el-input
                     v-model.trim="targetForm.friendPrefix"
                     :disabled="!targetForm.friendEnabled"
-                    :placeholder="friendPlaceholder"
                   />
                 </div>
                 <div class="target-section">
@@ -116,7 +114,6 @@
                   <el-input
                     v-model.trim="targetForm.groupKeywordsText"
                     :disabled="!targetForm.groupEnabled"
-                    placeholder="例如：班级 2024"
                   />
                 </div>
               </div>
@@ -206,9 +203,14 @@ interface SpeechParseResult {
 
 const MAX_SPEECH_CHARS = 200
 
-const DEFAULT_MESSAGE = `你好，现在是 {{datetime}}
-你好呀，现在是 {{time}}
-今天 {{date}} {{time}} 发一条消息`
+const DEFAULT_MESSAGE = `现在是 {{datetime}}
+现在时间 {{time}}
+今天是 {{date}}
+{{hour}} 点 {{minute}} 分
+{{time}}
+{{date}} {{time}}
+到 {{hour}} 点了
+{{datetime}}`
 const DEFAULT_FRIEND_PREFIX = '000'
 const DEFAULT_GROUP_KEYWORDS = ''
 const friendModeOptions = [
@@ -257,12 +259,6 @@ const targetForm = reactive({
   groupEnabled: false,
   groupMode: 'contains' as 'contains_all' | 'contains',
   groupKeywordsText: DEFAULT_GROUP_KEYWORDS,
-})
-
-const friendPlaceholder = computed(() => {
-  if (targetForm.friendMode === 'contains') return '好友备注包含的文字，例如 测试'
-  if (targetForm.friendMode === 'exact') return '好友备注名称，例如 000'
-  return '好友备注前缀，例如 000'
 })
 
 const messagePreviewLines = computed(() => {
@@ -494,10 +490,11 @@ function speechSaveSummary(result: SpeechParseResult) {
 }
 
 function resetDefaults() {
-  form.message_template = DEFAULT_MESSAGE
-  form.datetime_format = '2006-01-02 15:04'
-  form.enabled = true
-  targetForm.friendEnabled = true
+	form.message_template = DEFAULT_MESSAGE
+	form.datetime_format = '2006-01-02 15:04'
+	form.enabled = true
+	form.slot_ids = []
+	targetForm.friendEnabled = true
   targetForm.friendMode = 'prefix'
   targetForm.friendPrefix = DEFAULT_FRIEND_PREFIX
   targetForm.groupEnabled = false

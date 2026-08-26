@@ -165,14 +165,10 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column
-        v-if="showSlotColumn"
-        prop="slot_id"
-        label="轮次ID"
-        width="150"
-        show-overflow-tooltip
-      />
-      <el-table-column label="状态" width="112">
+      <el-table-column label="周期开始" min-width="170">
+        <template #default="{ row }">{{ formatBeijingTime(row.cycle_start_at) }}</template>
+      </el-table-column>
+      <el-table-column label="发送状态" width="112">
         <template #default="{ row }">
           <el-tag :type="runStatusTag(row.status)">{{ runStatusText(row.status) }}</el-tag>
         </template>
@@ -190,17 +186,10 @@
         </template>
       </el-table-column>
       <el-table-column prop="last_error_message" label="最近错误" min-width="300" show-overflow-tooltip />
-      <el-table-column label="周期开始" min-width="170">
-        <template #default="{ row }">{{ formatBeijingTime(row.cycle_start_at) }}</template>
-      </el-table-column>
-      <el-table-column prop="id" label="运行ID" width="150" show-overflow-tooltip />
-      <el-table-column prop="task_id" label="任务ID" width="150" show-overflow-tooltip />
-      <el-table-column prop="cycle_id" label="周期ID" width="160" show-overflow-tooltip />
-      <el-table-column label="开始时间" min-width="180" show-overflow-tooltip>
-        <template #default="{ row }">{{ formatBeijingTime(row.started_at) }}</template>
-      </el-table-column>
-      <el-table-column label="结束时间" min-width="180" show-overflow-tooltip>
-        <template #default="{ row }">{{ formatBeijingTime(row.finished_at) }}</template>
+      <el-table-column label="详情" width="82" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openRunPage(row)">查看</el-button>
+        </template>
       </el-table-column>
     </el-table>
 
@@ -221,6 +210,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { SendRun } from '@/api/types'
 import type { SendRunList, SendRunQuery } from '@/api/sendTasks'
@@ -245,7 +235,7 @@ const props = withDefaults(
     scopeKey?: string | number
     showScopeFilters?: boolean
     showGlobalColumns?: boolean
-    showSlotColumn?: boolean
+    adminMode?: boolean
     filterFields?: RunFilterField[]
     filterOptions?: Partial<Record<RunFilterField, RunFilterOption[]>>
   }>(),
@@ -253,9 +243,11 @@ const props = withDefaults(
     height: 420,
     showScopeFilters: false,
     showGlobalColumns: false,
-    showSlotColumn: false,
+    adminMode: false,
   },
 )
+
+const router = useRouter()
 
 const modeOptions = [
   { label: '最新记录', value: 'latest' },
@@ -303,8 +295,6 @@ const visibleFilterFields = computed<RunFilterField[]>(() => {
   if (!props.showScopeFilters) return []
   return props.filterFields?.length ? props.filterFields : defaultFilterFields
 })
-
-const showSlotColumn = computed(() => props.showGlobalColumns || props.showSlotColumn)
 
 const mergedOptions = computed<Record<RunFilterField, RunFilterOption[]>>(() => ({
   owner_public_uid: mergeOptions(props.filterOptions?.owner_public_uid || []),
@@ -618,6 +608,37 @@ function errorCodeText(code?: string) {
     unknown_page_state: '页面状态无法识别',
   }
   return normalized ? map[normalized] || normalized : '-'
+}
+
+function openRunPage(run: SendRun) {
+  sessionStorage.setItem(`douyin-spark-run:${run.id}`, JSON.stringify(run))
+  const query = {
+    douyinId: run.douyin_id || undefined,
+    taskId: run.task_id || undefined,
+    cycleStart: run.cycle_start_at || undefined,
+  }
+
+  if (props.showGlobalColumns) {
+    void router.push({
+      name: 'adminGlobalRunDetail',
+      params: { runId: run.id },
+      query,
+    })
+    return
+  }
+  if (props.adminMode) {
+    void router.push({
+      name: 'adminAccountRunDetail',
+      params: { douyinId: run.douyin_id, runId: run.id },
+      query,
+    })
+    return
+  }
+  void router.push({
+    name: 'sendRunDetail',
+    params: { douyinId: run.douyin_id, runId: run.id },
+    query,
+  })
 }
 
 function mergeOptions(options: RunFilterOption[]) {

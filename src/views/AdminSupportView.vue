@@ -43,12 +43,6 @@
                   empty-text="暂无消息"
                 />
               </div>
-              <el-badge
-                v-if="row.message_count"
-                :value="row.message_count"
-                :max="99"
-                class="conversation-count"
-              />
             </button>
             <el-empty v-if="filteredConversations.length === 0" description="暂无咨询" />
           </div>

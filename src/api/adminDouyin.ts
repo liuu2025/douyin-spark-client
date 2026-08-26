@@ -6,7 +6,12 @@ import type {
   SendScheduleSlot,
   SendTask,
 } from './types'
-import type { SendRunList, SendRunQuery, SendTaskPayload } from './sendTasks'
+import type {
+  SendRunCandidates,
+  SendRunList,
+  SendRunQuery,
+  SendTaskPayload,
+} from './sendTasks'
 
 export interface AdminDouyinAccountParams {
   page?: number
@@ -165,4 +170,12 @@ export async function listAdminAccountRuns(
 export async function listAdminSendRuns(params: SendRunQuery = { limit: 50 }) {
   const { data } = await http.get('/admin/send-runs', { params })
   return pickRunList(data, params.page_size || params.limit || 50)
+}
+
+export async function getAdminSendRunCandidates(runId: string) {
+  const { data } = await http.get<SendRunCandidates>(`/admin/send-runs/${runId}/candidates`)
+  return {
+    friends: data.friends || [],
+    groups: data.groups || [],
+  }
 }
