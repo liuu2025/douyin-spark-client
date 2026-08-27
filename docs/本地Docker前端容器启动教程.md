@@ -12,7 +12,8 @@ D:\Projects\test\douyin-spark-workspace\douyin-spark-client
 
 ```text
 容器名：douyin-spark-web
-镜像名：douyin-spark-web:local
+环境基线镜像：douyin-spark-web:local
+前端产物镜像：douyin-spark-web:frontend-local
 本机端口：8080
 容器端口：8080
 ```
@@ -42,13 +43,13 @@ docker version
 docker images douyin-spark-web
 ```
 
-如果能看到：
+如果能看到环境基线镜像：
 
 ```text
 douyin-spark-web   local   ...
 ```
 
-说明可以继续。
+说明可以继续。这个镜像只作为运行环境基线，重构过程中不会删除。
 
 如果没有这个镜像，当前前端仓库的 `Dockerfile.deploy` 不能单独完成第一次基础镜像构建，需要先准备 `douyin-spark-web:local` 基础运行镜像。
 
@@ -111,16 +112,16 @@ Vite 可能提示某些 JavaScript chunk 大于 500 KB。只要最后显示 `bui
 执行：
 
 ```powershell
-docker build -f Dockerfile.deploy -t douyin-spark-web:local .
+docker build -f Dockerfile.deploy --build-arg BASE_IMAGE=douyin-spark-web:local -t douyin-spark-web:frontend-local .
 ```
 
 这条命令会：
 
 ```text
-1. 使用已有的 douyin-spark-web:local 作为基础镜像。
+1. 使用已有的 douyin-spark-web:local 作为环境基线。
 2. 读取当前目录下的 dist/。
 3. 把 dist/ 复制到容器内的 /app/html/。
-4. 重新生成 douyin-spark-web:local。
+4. 生成 douyin-spark-web:frontend-local，不覆盖环境基线镜像。
 ```
 
 检查镜像：
@@ -141,7 +142,7 @@ docker start douyin-spark-web
 
 ```powershell
 docker rm -f douyin-spark-web 2>$null
-docker run -d --name douyin-spark-web --restart unless-stopped -p 8080:8080 -e ADDR=:8080 -e BACKEND_URL=http://host.docker.internal:8787 douyin-spark-web:local
+docker run -d --name douyin-spark-web --restart unless-stopped -p 8080:8080 -e ADDR=:8080 -e BACKEND_URL=http://host.docker.internal:8787 douyin-spark-web:frontend-local
 ```
 
 参数说明：
@@ -231,9 +232,9 @@ Agent：8000
 ```powershell
 cd D:\Projects\test\douyin-spark-workspace\douyin-spark-client
 npm.cmd run build
-docker build -f Dockerfile.deploy -t douyin-spark-web:local .
+docker build -f Dockerfile.deploy --build-arg BASE_IMAGE=douyin-spark-web:local -t douyin-spark-web:frontend-local .
 docker rm -f douyin-spark-web 2>$null
-docker run -d --name douyin-spark-web --restart unless-stopped -p 8080:8080 -e ADDR=:8080 -e BACKEND_URL=http://host.docker.internal:8787 douyin-spark-web:local
+docker run -d --name douyin-spark-web --restart unless-stopped -p 8080:8080 -e ADDR=:8080 -e BACKEND_URL=http://host.docker.internal:8787 douyin-spark-web:frontend-local
 curl.exe http://127.0.0.1:8080/health
 ```
 
@@ -277,7 +278,7 @@ npm.cmd run build
 pull access denied for douyin-spark-web
 ```
 
-这表示本机没有 `douyin-spark-web:local`，而当前 `Dockerfile.deploy` 依赖这个已有镜像，需要先准备基础前端运行镜像。
+这表示本机没有 `douyin-spark-web:local` 环境基线镜像，而当前 `Dockerfile.deploy` 依赖这个已有镜像，需要先准备基础前端运行镜像。
 
 ### 4. 页面能打开但接口失败
 
@@ -315,5 +316,4 @@ docker start douyin-spark-web
 docker rm -f douyin-spark-web
 ```
 
-删除容器不会删除 `douyin-spark-web:local` 镜像，也不会删除前端源代码。
-
+删除容器不会删除 `douyin-spark-web:local` 或 `douyin-spark-web:frontend-local` 镜像，也不会删除前端源代码。

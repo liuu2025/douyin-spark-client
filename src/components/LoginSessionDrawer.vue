@@ -1,7 +1,7 @@
 <template>
   <el-drawer
     :model-value="modelValue"
-    size="560px"
+    size="min(560px, 100vw)"
     :title="drawerTitle"
     :close-on-click-modal="false"
     :before-close="beforeClose"
@@ -19,7 +19,12 @@
         <QrCode v-if="loginMode === 'qr_sms'" :size="22" />
         <Monitor v-else :size="22" />
         <div>
-          <strong>{{ selectedModeTitle }}</strong>
+          <strong class="mode-title-row">
+            {{ selectedModeTitle }}
+            <el-tag v-if="loginMode === 'qr_sms'" size="small" type="success" effect="plain">
+              推荐
+            </el-tag>
+          </strong>
           <p>{{ selectedModeDescription }}</p>
         </div>
       </div>
@@ -39,6 +44,7 @@
       <div class="session-box">
         <div class="session-status">{{ sessionStatusText(session.status) }}</div>
         <p class="muted">{{ statusDescription }}</p>
+        <div class="elapsed-time" aria-live="polite">已开始 {{ formattedElapsed }}</div>
         <el-alert
           v-if="session.last_error_message"
           :type="session.status === 'remote_browser_required' ? 'warning' : 'error'"
@@ -54,7 +60,7 @@
             <img v-if="qrObjectURL" :src="qrObjectURL" alt="抖音登录二维码" />
             <div v-else class="qr-placeholder">正在生成二维码</div>
           </div>
-          <p v-if="qrError" class="qr-error">{{ qrError }}</p>
+          <p v-if="qrError" class="qr-notice">二维码正在传输到前端，请不要关闭当前窗口。</p>
         </div>
 
         <div v-if="showSMSForm" class="sms-section">
@@ -218,7 +224,16 @@ const resendingSMS = ref(false)
 const resendRequested = ref(false)
 let lastQRImageURL = ''
 let completedEmitted = false
-let timer: number | undefined
+let pollTimer: number | undefined
+let elapsedTimer: number | undefined
+const elapsedSeconds = ref(0)
+let startedAt = 0
+
+const formattedElapsed = computed(() => {
+  const minutes = Math.floor(elapsedSeconds.value / 60)
+  const seconds = elapsedSeconds.value % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+})
 
 const drawerTitle = computed(() => {
   if (!session.value) return '登录抖音号'
@@ -232,7 +247,7 @@ const selectedModeTitle = computed(() =>
 const selectedModeDescription = computed(() =>
   loginMode.value === 'qr_sms'
     ? '前端显示后端生成的二维码；扫码后如需验证，可在这里提交短信验证码。'
-    : '打开远程浏览器，在浏览器窗口中完成扫码、滑块、短信验证和登录确认。',
+    : '请在远程浏览器完成抖音号登录，并保存登录信息！保存登录信息可在左侧栏进入“我的”个人主页开启！',
 )
 
 const isDone = computed(() =>
@@ -248,6 +263,7 @@ const stepTitles = computed(() =>
 const activeStep = computed(() => {
   const status = session.value?.status
   if (loginMode.value === 'qr_sms') {
+    if (!qrObjectURL.value && ['created', 'waiting_qr_scan'].includes(status || '')) return 0
     if (status === 'waiting_qr_scan' || status === 'created') return 1
     if (
       ['waiting_sms_code', 'sms_code_invalid', 'sms_code_expired', 'sms_retry_later', 'remote_browser_required'].includes(
@@ -276,13 +292,21 @@ const activeStep = computed(() => {
 const statusDescription = computed(() => {
   const status = session.value?.status
   const descriptions: Record<string, string> = {
-    created: '正在准备登录页面。',
-    waiting_qr_scan: '请使用抖音 App 扫描下方二维码。',
-    waiting_sms_code: '扫码已确认，请输入抖音发送的短信验证码。',
+    created: qrObjectURL.value
+      ? '二维码已加载，请使用抖音 App 扫码。'
+      : session.value?.qr_image_url
+        ? '二维码正在传输到前端，请不要关闭当前窗口。'
+        : '正在等待生成二维码，需长时间等待。',
+    waiting_qr_scan: qrObjectURL.value
+      ? '二维码已加载，请使用抖音 App 扫码。'
+      : '二维码正在传输到前端，请不要关闭当前窗口。',
+    waiting_sms_code: smsCodePending.value
+      ? '验证码已提交，正在等待完成验证，请稍候。'
+      : '扫码结果已收到，正在等待短信验证。',
     sms_code_invalid: '验证码未通过，请重新输入。',
     sms_code_expired: '验证码已过期，请重新发送。',
     sms_retry_later: '当前验证码不能继续使用，请重新发送。',
-    remote_browser_required: '需要在远程浏览器中完成滑块或其他额外验证。',
+    remote_browser_required: '请在远程浏览器完成抖音号登录，并保存登录信息！保存登录信息可在左侧栏进入“我的”个人主页开启！',
     remote_browser_starting: '正在分配远程浏览器资源。',
     waiting_manual_login: '请在远程浏览器中完成抖音登录。',
     login_confirming: '已检测到登录成功，请确认远程页面没有未处理提示。',
@@ -322,7 +346,10 @@ watch(
   () => props.modelValue,
   (open) => {
     if (open && session.value && isDone.value) resetFlow()
-    if (!open) stopPolling()
+    if (!open) {
+      stopPolling()
+      stopElapsedTimer()
+    }
   },
 )
 
@@ -331,6 +358,7 @@ async function startSession() {
   try {
     session.value = await createLoginSession(loginMode.value)
     completedEmitted = false
+    startElapsedTimer()
     if (loginMode.value === 'remote_browser' && session.value.remote_url) openRemote()
     await refreshQRCode(session.value)
     startPolling()
@@ -349,7 +377,7 @@ function openRemote() {
 function startPolling() {
   stopPolling()
   void pollSession()
-  timer = window.setInterval(() => void pollSession(), 2500)
+  pollTimer = window.setInterval(() => void pollSession(), 2500)
 }
 
 async function pollSession() {
@@ -367,11 +395,13 @@ async function pollSession() {
       resendRequested.value = false
     }
     await refreshQRCode(next)
+    if (isDone.value) stopElapsedTimer()
     if (next.status === 'logged_in' && !completedEmitted) {
       completedEmitted = true
       ElMessage.success('抖音号登录完成。')
       emit('completed')
       stopPolling()
+      stopElapsedTimer()
     }
   } catch (error) {
     ElMessage.error(errorText(error))
@@ -434,9 +464,25 @@ async function resendSMSCode() {
 }
 
 function stopPolling() {
-  if (timer) {
-    window.clearInterval(timer)
-    timer = undefined
+  if (pollTimer) {
+    window.clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
+
+function startElapsedTimer() {
+  stopElapsedTimer()
+  startedAt = Date.now()
+  elapsedSeconds.value = 0
+  elapsedTimer = window.setInterval(() => {
+    elapsedSeconds.value = Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+  }, 1000)
+}
+
+function stopElapsedTimer() {
+  if (elapsedTimer) {
+    window.clearInterval(elapsedTimer)
+    elapsedTimer = undefined
   }
 }
 
@@ -459,6 +505,7 @@ async function cancelSession() {
   try {
     session.value = await cancelLoginSession(session.value.id)
     stopPolling()
+    stopElapsedTimer()
     ElMessage.info('已取消登录会话。')
   } catch (error) {
     ElMessage.error(errorText(error))
@@ -469,6 +516,7 @@ async function cancelSession() {
 
 function resetFlow() {
   stopPolling()
+  stopElapsedTimer()
   revokeQRCode()
   session.value = null
   loginMode.value = 'qr_sms'
@@ -500,6 +548,7 @@ function beforeClose(done: () => void) {
 
 onBeforeUnmount(() => {
   stopPolling()
+  stopElapsedTimer()
   revokeQRCode()
 })
 </script>
@@ -535,6 +584,13 @@ onBeforeUnmount(() => {
   padding: 16px 0;
   border-top: 1px solid var(--app-border);
   border-bottom: 1px solid var(--app-border);
+  min-height: 136px;
+}
+
+.mode-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .session-box {
@@ -557,6 +613,13 @@ onBeforeUnmount(() => {
   color: var(--app-text);
   font-size: 18px;
   font-weight: 700;
+}
+
+.elapsed-time {
+  margin-top: 10px;
+  color: var(--app-text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .qr-section {
@@ -589,9 +652,9 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.qr-error {
+.qr-notice {
   margin: 0;
-  color: var(--app-danger);
+  color: var(--app-text-muted);
   font-size: 13px;
 }
 
@@ -668,6 +731,10 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
+  .method-detail {
+    min-height: 176px;
+  }
+
   .qr-frame {
     width: min(100%, 300px);
   }
@@ -678,6 +745,7 @@ onBeforeUnmount(() => {
 
   .form-footer .el-button {
     margin-left: 0;
+    width: 100%;
   }
 }
 </style>

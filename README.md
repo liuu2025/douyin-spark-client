@@ -4,7 +4,7 @@
 
 当前仓库为私有仓库。
 
-当前前端发布为 `v1.2.0`，配套后端为 `douyin-spark v1.2.1`。
+当前前端发布为 `v1.3.0`，配套后端为 `douyin-spark v1.2.1`。
 
 配套后端仓库：
 
@@ -80,7 +80,7 @@ npm.cmd run build
 dist/
 ```
 
-项目包含 `Dockerfile.deploy`，用于把本地构建好的 `dist/` 复制进已有前端运行镜像。
+项目包含 `Dockerfile.deploy`，用于把本地构建好的 `dist/` 复制进共享环境基线镜像，并生成独立的前端产物镜像。构建时保留 `douyin-spark-web:local`，前端容器使用 `douyin-spark-web:frontend-local`。
 
 前端轻量部署时通常只需要上传：
 

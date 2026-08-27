@@ -46,17 +46,18 @@ package-lock.json
   npm 实际安装版本和完整依赖锁定信息。
 
 Dockerfile.deploy
-  把 dist/ 复制到已有前端运行镜像。
+  把 dist/ 复制到共享的前端运行镜像，并生成独立的前端镜像。
 ```
 
 当前 `Dockerfile.deploy` 的核心内容是：
 
 ```dockerfile
-FROM douyin-spark-web:local
+ARG BASE_IMAGE=douyin-spark-web:local
+FROM ${BASE_IMAGE}
 COPY dist/ /app/html/
 ```
 
-它不是从 Node.js 镜像开始构建的完整 Dockerfile，而是依赖本机或服务器已经存在：
+它不是从 Node.js 镜像开始构建的完整 Dockerfile，而是依赖本机或服务器已经存在的环境基线镜像：
 
 ```text
 douyin-spark-web:local
@@ -92,7 +93,7 @@ Git 标签：v0.9.0
 Docker 镜像标签：local
 ```
 
-`:local` 表示当前机器上构建和部署的镜像。服务器部署时通常也是导入同名镜像，再由 Compose 使用该标签启动容器。
+`:local` 表示共享环境基线镜像。前端产物使用独立标签 `douyin-spark-web:frontend-local`，不会覆盖基线镜像。服务器部署时可以保留基线镜像，再替换前端产物镜像。
 
 ## 四、本地构建前端镜像
 
@@ -101,7 +102,7 @@ Docker 镜像标签：local
 ```powershell
 cd D:\Projects\test\douyin-spark-workspace\douyin-spark-client
 npm.cmd run build
-docker build -f Dockerfile.deploy -t douyin-spark-web:local .
+docker build -f Dockerfile.deploy --build-arg BASE_IMAGE=douyin-spark-web:local -t douyin-spark-web:frontend-local .
 ```
 
 第一条构建命令会生成：
@@ -110,7 +111,7 @@ docker build -f Dockerfile.deploy -t douyin-spark-web:local .
 dist/
 ```
 
-第二条 Docker 命令会把 `dist/` 复制进 `douyin-spark-web:local` 镜像。
+第二条 Docker 命令会把 `dist/` 复制进新的 `douyin-spark-web:frontend-local` 镜像，原有的 `douyin-spark-web:local` 基线镜像不会被删除或覆盖。
 
 如果只是修改了 Vue 页面、样式或接口调用代码，通常需要重新执行这两步。仅执行 `docker restart` 不会把新的 `dist/` 复制进旧镜像。
 
@@ -120,7 +121,7 @@ dist/
 
 ```text
 容器名：douyin-spark-web
-镜像：douyin-spark-web:local
+镜像：douyin-spark-web:frontend-local
 端口：8080
 ```
 
@@ -151,14 +152,14 @@ BACKEND_URL=http://host.docker.internal:8787
 2. 准备 `dist/` 和 `Dockerfile.deploy`。
 3. 使用 `tar.gz` 打包这两个文件。
 4. 上传到服务器并解压。
-5. 服务器基于已有的 `douyin-spark-web:local` 重新构建镜像。
-6. 只重建 `douyin-spark-web` 容器。
+5. 服务器基于已有的 `douyin-spark-web:local` 构建 `douyin-spark-web:frontend-local`。
+6. 删除旧的 `douyin-spark-web` 容器并用新镜像重建，保留两个镜像。
 
 服务器上的典型命令：
 
 ```bash
 cd /opt/douyin-spark-images/web-dist-current
-sudo docker build -f Dockerfile.deploy -t douyin-spark-web:local .
+sudo docker build -f Dockerfile.deploy --build-arg BASE_IMAGE=douyin-spark-web:local -t douyin-spark-web:frontend-local .
 cd /opt/douyin-spark-deploy
 sudo docker compose up -d --force-recreate --no-deps douyin-spark-web
 ```
@@ -213,4 +214,3 @@ node_modules/
 ```
 
 `dist/` 通常是部署产物，可以在本地生成后用于制作镜像，但当前项目不要求把它提交到 Git。
-

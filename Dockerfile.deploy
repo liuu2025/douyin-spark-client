@@ -1,2 +1,7 @@
-FROM douyin-spark-web:local
+ARG BASE_IMAGE=douyin-spark-web:local
+FROM ${BASE_IMAGE}
+
+LABEL org.opencontainers.image.title="douyin-spark-web frontend"
+LABEL org.opencontainers.image.description="Douyin Spark static frontend layered on the shared runtime image"
+
 COPY dist/ /app/html/
