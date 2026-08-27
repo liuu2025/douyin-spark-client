@@ -91,12 +91,18 @@
         </div>
 
         <el-table
+          class="admin-account-table desktop-only"
           :data="accounts"
           :loading="loading"
           empty-text="暂无抖音号"
-          height="calc(100vh - 390px)"
+          :height="accountTableHeight"
         >
-          <el-table-column prop="douyin_id" label="抖音号" min-width="140" fixed="left" />
+          <el-table-column
+            prop="douyin_id"
+            label="抖音号"
+            min-width="140"
+            :fixed="compactTableLayout ? false : 'left'"
+          />
           <el-table-column label="抖音昵称" min-width="150">
             <template #default="{ row }">{{ row.profile_nickname || '-' }}</template>
           </el-table-column>
@@ -138,7 +144,11 @@
               {{ row.latest_task_error_message || row.latest_task_error_code || row.last_error_message || '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="250" fixed="right">
+          <el-table-column
+            label="操作"
+            width="250"
+            :fixed="compactTableLayout ? false : 'right'"
+          >
             <template #default="{ row }">
               <el-button link type="primary" @click="openDetail(row)">详情</el-button>
               <el-button link type="primary" @click="openRedeemDialog(row)">兑换</el-button>
@@ -164,6 +174,67 @@
             </template>
           </el-table-column>
         </el-table>
+
+        <div v-loading="loading" class="mobile-only mobile-card-list admin-account-cards">
+          <article v-for="account in accounts" :key="account.douyin_id" class="mobile-data-card">
+            <div class="mobile-data-card__header">
+              <div class="admin-mobile-title">
+                <strong>{{ account.profile_nickname || account.douyin_id }}</strong>
+                <span>{{ account.douyin_id }}</span>
+              </div>
+              <el-tag :type="loginStateTag(account.login_state)">
+                {{ adminLoginStateText(account.login_state) }}
+              </el-tag>
+            </div>
+            <div class="mobile-data-card__body">
+              <div class="mobile-data-row">
+                <span>归属账户</span>
+                <span>{{ account.owner_public_uid || '-' }} · {{ account.owner_nickname || '-' }}</span>
+              </div>
+              <div class="mobile-data-row">
+                <span>自动发送</span>
+                <span>
+                  <el-tag :type="enabledStatusTag(account.status)" size="small">
+                    {{ adminStatusText(account.status) }}
+                  </el-tag>
+                </span>
+              </div>
+              <div class="mobile-data-row">
+                <span>轮询资格</span>
+                <span>{{ entitlementText(account) }}</span>
+              </div>
+              <div class="mobile-data-row">
+                <span>任务数</span>
+                <span>{{ account.send_task_count || 0 }} / 启用 {{ account.active_send_task_count || 0 }}</span>
+              </div>
+              <div v-if="account.latest_task_error_message || account.last_error_message" class="mobile-data-row">
+                <span>最近错误</span>
+                <span>{{ account.latest_task_error_message || account.last_error_message }}</span>
+              </div>
+            </div>
+            <div class="mobile-data-card__footer admin-mobile-actions">
+              <el-button type="primary" @click="openDetail(account)">详情</el-button>
+              <el-button @click="openRedeemDialog(account)">兑换</el-button>
+              <el-button
+                :loading="verifyingDouyinId === account.douyin_id"
+                @click="verifyAccountLogin(account)"
+              >
+                验证登录态
+              </el-button>
+              <el-button
+                v-if="account.status === 'active'"
+                type="warning"
+                @click="changeAccountPolling(account, false)"
+              >
+                暂停
+              </el-button>
+              <el-button v-else type="success" @click="changeAccountPolling(account, true)">
+                恢复
+              </el-button>
+            </div>
+          </article>
+          <div v-if="!loading && accounts.length === 0" class="mobile-empty">暂无抖音号</div>
+        </div>
 
         <div class="pagination-row">
           <el-pagination
@@ -240,7 +311,7 @@
                 <el-button type="primary" @click="openTaskDialog()">新增发送任务</el-button>
               </div>
             </div>
-            <el-table :data="tasks" :loading="tasksLoading" empty-text="暂无发送任务" height="310">
+            <el-table class="desktop-only" :data="tasks" :loading="tasksLoading" empty-text="暂无发送任务" height="310">
               <el-table-column prop="id" label="任务ID" min-width="180" />
               <el-table-column label="状态" width="100">
                 <template #default="{ row }">{{ runStatusText(row.status) }}</template>
@@ -266,6 +337,24 @@
                 </template>
               </el-table-column>
             </el-table>
+            <div v-loading="tasksLoading" class="mobile-only mobile-card-list">
+              <article v-for="task in tasks" :key="task.id" class="mobile-data-card">
+                <div class="mobile-data-card__header">
+                  <strong>{{ task.id }}</strong>
+                  <el-tag>{{ runStatusText(task.status) }}</el-tag>
+                </div>
+                <div class="mobile-data-card__body">
+                  <div class="mobile-data-row"><span>发送目标</span><span>{{ targetRulesText(task.target_rules_json) }}</span></div>
+                  <div class="mobile-data-row"><span>最近运行</span><span>{{ formatBeijingTime(task.last_run_at) }}</span></div>
+                </div>
+                <div class="mobile-data-card__footer">
+                  <el-button @click="openTaskDialog(task)">编辑</el-button>
+                  <el-button v-if="task.status === 'active'" type="warning" @click="pauseTask(task)">暂停</el-button>
+                  <el-button v-else type="success" @click="resumeTask(task)">恢复</el-button>
+                </div>
+              </article>
+              <div v-if="!tasksLoading && tasks.length === 0" class="mobile-empty">暂无发送任务</div>
+            </div>
           </el-tab-pane>
           <el-tab-pane label="运行记录" name="runs">
             <div class="toolbar">
@@ -279,7 +368,7 @@
               :filter-options="detailRunFilterOptions"
               show-scope-filters
               admin-mode
-              height="calc(100vh - 360px)"
+              height="calc(100dvh - 360px)"
             />
           </el-tab-pane>
         </el-tabs>
@@ -320,7 +409,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -369,6 +458,11 @@ const redeemDialogOpen = ref(false)
 const redeemTarget = ref<DouyinAccount | null>(null)
 const redeemCode = ref('')
 const redeeming = ref(false)
+const compactTableLayout = ref(false)
+const accountTableHeight = computed(() =>
+  compactTableLayout.value ? undefined : 'calc(100dvh - 390px)',
+)
+let compactTableMedia: MediaQueryList | null = null
 const detailRunFilterFields: Array<'task_id' | 'slot_id' | 'error_code'> = [
   'task_id',
   'slot_id',
@@ -842,11 +936,22 @@ function groupRuleModeText(mode?: string) {
   return '包含'
 }
 
+function syncCompactTableLayout(event: MediaQueryList | MediaQueryListEvent) {
+  compactTableLayout.value = event.matches
+}
+
 onMounted(() => {
+  compactTableMedia = window.matchMedia('(max-width: 1100px), (max-height: 520px)')
+  syncCompactTableLayout(compactTableMedia)
+  compactTableMedia.addEventListener('change', syncCompactTableLayout)
   void loadAccounts()
   void loadFilterOptions()
   void loadRunFilterSlots()
   void reopenDetailFromQuery()
+})
+
+onBeforeUnmount(() => {
+  compactTableMedia?.removeEventListener('change', syncCompactTableLayout)
 })
 </script>
 
@@ -887,6 +992,27 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 14px;
+}
+
+.admin-mobile-title {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-mobile-title span {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.admin-mobile-actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.admin-mobile-actions .el-button + .el-button {
+  margin-left: 0;
 }
 
 .detail-drawer-body {

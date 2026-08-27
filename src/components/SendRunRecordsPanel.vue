@@ -130,18 +130,18 @@
     </div>
 
     <el-table
-      class="run-table"
+      class="run-table desktop-only"
       :data="runs"
       :loading="loading"
       empty-text="暂无运行记录"
-      :height="height"
+      :height="effectiveHeight"
     >
       <el-table-column
         v-if="showGlobalColumns"
         prop="douyin_id"
         label="抖音号"
         min-width="140"
-        fixed="left"
+        :fixed="compactTableLayout ? false : 'left'"
         show-overflow-tooltip
       />
       <el-table-column
@@ -186,12 +186,51 @@
         </template>
       </el-table-column>
       <el-table-column prop="last_error_message" label="最近错误" min-width="300" show-overflow-tooltip />
-      <el-table-column label="详情" width="82" fixed="right">
+      <el-table-column
+        label="详情"
+        width="82"
+        :fixed="compactTableLayout ? false : 'right'"
+      >
         <template #default="{ row }">
           <el-button link type="primary" @click="openRunPage(row)">查看</el-button>
         </template>
       </el-table-column>
     </el-table>
+
+    <div v-loading="loading" class="mobile-only mobile-card-list run-mobile-list">
+      <article v-for="run in runs" :key="run.id" class="mobile-data-card">
+        <div class="mobile-data-card__header">
+          <strong>{{ formatBeijingTime(run.cycle_start_at) }}</strong>
+          <el-tag :type="runStatusTag(run.status)">{{ runStatusText(run.status) }}</el-tag>
+        </div>
+        <div class="mobile-data-card__body">
+          <div v-if="showGlobalColumns" class="mobile-data-row">
+            <span>抖音号</span>
+            <span>{{ run.profile_nickname || run.douyin_id || '-' }}</span>
+          </div>
+          <div class="mobile-data-row">
+            <span>任务ID</span>
+            <span>{{ run.task_id || '-' }}</span>
+          </div>
+          <div class="mobile-data-row">
+            <span>轮次ID</span>
+            <span>{{ run.slot_id || '-' }}</span>
+          </div>
+          <div v-if="run.last_error_code" class="mobile-data-row">
+            <span>错误码</span>
+            <span>{{ errorCodeText(run.last_error_code) }}</span>
+          </div>
+          <div v-if="run.last_error_message" class="mobile-data-row">
+            <span>最近错误</span>
+            <span>{{ run.last_error_message }}</span>
+          </div>
+        </div>
+        <div class="mobile-data-card__footer">
+          <el-button type="primary" @click="openRunPage(run)">查看详情</el-button>
+        </div>
+      </article>
+      <div v-if="!loading && runs.length === 0" class="mobile-empty">暂无运行记录</div>
+    </div>
 
     <div v-if="mode !== 'latest'" class="run-pagination">
       <el-pagination
@@ -209,7 +248,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { SendRun } from '@/api/types'
@@ -248,6 +287,13 @@ const props = withDefaults(
 )
 
 const router = useRouter()
+const compactTableLayout = ref(false)
+const effectiveHeight = computed(() =>
+  compactTableLayout.value
+    ? 'clamp(250px, calc(100dvh - 170px), 460px)'
+    : props.height,
+)
+let compactTableMedia: MediaQueryList | null = null
 
 const modeOptions = [
   { label: '最新记录', value: 'latest' },
@@ -668,7 +714,20 @@ function mergedTaskOptions() {
   ])
 }
 
-onMounted(loadRuns)
+function syncCompactTableLayout(event: MediaQueryList | MediaQueryListEvent) {
+  compactTableLayout.value = event.matches
+}
+
+onMounted(() => {
+  compactTableMedia = window.matchMedia('(max-width: 1100px), (max-height: 520px)')
+  syncCompactTableLayout(compactTableMedia)
+  compactTableMedia.addEventListener('change', syncCompactTableLayout)
+  void loadRuns()
+})
+
+onBeforeUnmount(() => {
+  compactTableMedia?.removeEventListener('change', syncCompactTableLayout)
+})
 
 defineExpose({ loadRuns, reloadFirstPage })
 </script>
@@ -717,6 +776,10 @@ defineExpose({ loadRuns, reloadFirstPage })
   white-space: nowrap;
 }
 
+.run-mobile-list {
+  min-height: 120px;
+}
+
 .run-owner-cell {
   display: grid;
   gap: 2px;
@@ -740,6 +803,10 @@ defineExpose({ loadRuns, reloadFirstPage })
   .run-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .run-actions {
+    flex: none;
   }
 
   .run-filter-select,

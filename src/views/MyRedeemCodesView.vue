@@ -10,7 +10,7 @@
 
     <div class="content-panel">
       <div class="panel-body">
-        <el-table :data="codes" :loading="loading" empty-text="暂无兑换码">
+        <el-table class="desktop-only" :data="codes" :loading="loading" empty-text="暂无兑换码">
           <el-table-column label="兑换码" min-width="220">
             <template #default="{ row }">
               <div class="code-cell">
@@ -40,6 +40,29 @@
             <template #default="{ row }">{{ formatBeijingTime(row.created_at) }}</template>
           </el-table-column>
         </el-table>
+
+        <div v-loading="loading" class="mobile-only mobile-card-list">
+          <article v-for="code in codes" :key="code.id || code.code_id || displayCode(code)" class="mobile-data-card">
+            <div class="mobile-data-card__header">
+              <strong>{{ displayCode(code) }}</strong>
+              <el-tag :type="statusTag(code.status)">{{ statusText(code.status) }}</el-tag>
+            </div>
+            <div class="mobile-data-card__body">
+              <div class="mobile-data-row"><span>类型</span><span>{{ codeTypeText(code) }}</span></div>
+              <div class="mobile-data-row"><span>天数</span><span>{{ code.days ?? '-' }}</span></div>
+              <div class="mobile-data-row">
+                <span>兑换到抖音号</span>
+                <span>{{ code.redeemed_douyin_id || code.douyin_id || '-' }}</span>
+              </div>
+              <div class="mobile-data-row"><span>兑换时间</span><span>{{ formatBeijingTime(code.redeemed_at) }}</span></div>
+              <div class="mobile-data-row"><span>发放时间</span><span>{{ formatBeijingTime(code.created_at) }}</span></div>
+            </div>
+            <div v-if="canCopy(code)" class="mobile-data-card__footer">
+              <el-button type="primary" @click="copyCode(code)">复制兑换码</el-button>
+            </div>
+          </article>
+          <div v-if="!loading && codes.length === 0" class="mobile-empty">暂无兑换码</div>
+        </div>
       </div>
     </div>
   </section>

@@ -119,7 +119,7 @@
               <strong>发送任务</strong>
               <el-button type="primary" @click="openTaskDialog()">新增发送任务</el-button>
             </div>
-            <el-table :data="tasks" :loading="tasksLoading" empty-text="暂无发送任务" height="420">
+            <el-table class="desktop-only" :data="tasks" :loading="tasksLoading" empty-text="暂无发送任务" height="420">
               <el-table-column prop="id" label="任务ID" min-width="190" />
               <el-table-column label="状态" width="100">
                 <template #default="{ row }">{{ runStatusText(row.status) }}</template>
@@ -145,6 +145,24 @@
                 </template>
               </el-table-column>
             </el-table>
+            <div v-loading="tasksLoading" class="mobile-only mobile-card-list">
+              <article v-for="task in tasks" :key="task.id" class="mobile-data-card">
+                <div class="mobile-data-card__header">
+                  <strong>{{ task.id }}</strong>
+                  <el-tag>{{ runStatusText(task.status) }}</el-tag>
+                </div>
+                <div class="mobile-data-card__body">
+                  <div class="mobile-data-row"><span>发送目标</span><span>{{ targetRulesText(task.target_rules_json) }}</span></div>
+                  <div class="mobile-data-row"><span>最近运行</span><span>{{ formatBeijingTime(task.last_run_at) }}</span></div>
+                </div>
+                <div class="mobile-data-card__footer">
+                  <el-button @click="openTaskDialog(task)">编辑</el-button>
+                  <el-button v-if="task.status === 'active'" type="warning" @click="pauseTask(task)">暂停</el-button>
+                  <el-button v-else type="success" @click="resumeTask(task)">恢复</el-button>
+                </div>
+              </article>
+              <div v-if="!tasksLoading && tasks.length === 0" class="mobile-empty">暂无发送任务</div>
+            </div>
           </el-tab-pane>
           <el-tab-pane label="运行记录" name="runs">
             <div class="toolbar">

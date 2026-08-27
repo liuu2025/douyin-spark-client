@@ -50,9 +50,11 @@
                 <el-button @click="loadConversations(false)">刷新</el-button>
               </div>
               <el-table
+                class="desktop-only"
                 :data="conversations"
                 :loading="conversationsLoading"
                 empty-text="暂无用户咨询"
+                height="clamp(250px, calc(100dvh - 210px), 520px)"
               >
                 <el-table-column prop="public_uid" label="用户账户ID" width="130" />
                 <el-table-column label="最近消息" min-width="240">
@@ -75,6 +77,24 @@
                   </template>
                 </el-table-column>
               </el-table>
+              <div v-loading="conversationsLoading" class="mobile-only mobile-card-list">
+                <article v-for="conversation in conversations" :key="conversation.user_id" class="mobile-data-card">
+                  <div class="mobile-data-card__header">
+                    <strong>{{ conversation.nickname || conversation.public_uid }}</strong>
+                    <span>{{ shortTime(conversation.last_message_at) }}</span>
+                  </div>
+                  <div class="mobile-data-card__body">
+                    <div class="mobile-data-row"><span>账户ID</span><span>{{ conversation.public_uid }}</span></div>
+                    <div class="mobile-data-row"><span>发送方</span><span>{{ senderText(conversation.last_sender) }}</span></div>
+                    <div class="mobile-data-row"><span>消息数</span><span>{{ conversation.message_count }}</span></div>
+                    <MessageContent :text="conversation.last_message" :lines="4" empty-text="暂无消息" />
+                  </div>
+                  <div class="mobile-data-card__footer">
+                    <el-button type="primary" @click="$router.push('/admin/support')">去回复</el-button>
+                  </div>
+                </article>
+                <div v-if="!conversationsLoading && conversations.length === 0" class="mobile-empty">暂无用户咨询</div>
+              </div>
             </template>
 
             <template v-else>
@@ -227,6 +247,7 @@
 
     <el-dialog v-model="muteListVisible" title="世界聊天禁言列表" width="720px">
       <el-table
+        class="desktop-only"
         :data="worldMutes"
         :loading="mutesLoading"
         empty-text="暂无禁言用户"
@@ -251,6 +272,28 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-loading="mutesLoading" class="mobile-only mobile-card-list">
+        <article v-for="mute in worldMutes" :key="mute.user_id" class="mobile-data-card">
+          <div class="mobile-data-card__header">
+            <strong>{{ mute.nickname || mute.public_uid }}</strong>
+            <span>{{ shortTime(mute.updated_at || mute.created_at) }}</span>
+          </div>
+          <div class="mobile-data-card__body">
+            <div class="mobile-data-row"><span>账户ID</span><span>{{ mute.public_uid }}</span></div>
+            <div class="mobile-data-row"><span>原因</span><span>{{ mute.reason || '-' }}</span></div>
+          </div>
+          <div class="mobile-data-card__footer">
+            <el-button
+              type="primary"
+              :loading="unmutingUid === mute.public_uid"
+              @click="submitUnmuteWorldUser(mute.public_uid)"
+            >
+              解除禁言
+            </el-button>
+          </div>
+        </article>
+        <div v-if="!mutesLoading && worldMutes.length === 0" class="mobile-empty">暂无禁言用户</div>
+      </div>
       <template #footer>
         <el-button @click="muteListVisible = false">关闭</el-button>
         <el-button @click="loadWorldMutes(false)">刷新</el-button>

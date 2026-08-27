@@ -32,7 +32,12 @@
           </div>
           <el-button @click="loadAccounts">刷新</el-button>
         </div>
-        <el-table :data="needAttention" :loading="loading" empty-text="暂无待处理事项">
+        <el-table
+          class="desktop-only"
+          :data="needAttention"
+          :loading="loading"
+          empty-text="暂无待处理事项"
+        >
           <el-table-column prop="douyin_id" label="抖音号" min-width="150" />
           <el-table-column label="登录状态" min-width="130">
             <template #default="{ row }">
@@ -50,6 +55,31 @@
             </template>
           </el-table-column>
         </el-table>
+        <div v-loading="loading" class="mobile-only mobile-card-list">
+          <article v-for="account in needAttention" :key="account.douyin_id" class="mobile-data-card">
+            <div class="mobile-data-card__header">
+              <strong>{{ account.douyin_id }}</strong>
+              <el-tag :type="loginStateTag(account.login_state)">
+                {{ loginStateText(account.login_state) }}
+              </el-tag>
+            </div>
+            <div class="mobile-data-card__body">
+              <div class="mobile-data-row">
+                <span>最近错误</span>
+                <span>{{ account.last_error_message || '-' }}</span>
+              </div>
+            </div>
+            <div class="mobile-data-card__footer">
+              <el-button
+                type="primary"
+                @click="$router.push(`/douyin-accounts/${account.douyin_id}`)"
+              >
+                进入处理
+              </el-button>
+            </div>
+          </article>
+          <div v-if="!loading && needAttention.length === 0" class="mobile-empty">暂无待处理事项</div>
+        </div>
       </div>
     </div>
 

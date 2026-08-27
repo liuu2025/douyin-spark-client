@@ -31,7 +31,7 @@
           :filter-options="filterOptions"
           show-scope-filters
           show-global-columns
-          height="calc(100vh - 390px)"
+          height="calc(100dvh - 390px)"
         />
       </div>
     </div>

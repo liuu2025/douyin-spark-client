@@ -164,6 +164,8 @@ function clampPosition(next: { x: number; y: number }) {
 }
 
 function startDrag(event: PointerEvent) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  event.preventDefault()
   const target = event.currentTarget as HTMLElement
   dragging.value = true
   moved.value = false
@@ -174,10 +176,12 @@ function startDrag(event: PointerEvent) {
   target.setPointerCapture(event.pointerId)
   window.addEventListener('pointermove', onDrag)
   window.addEventListener('pointerup', stopDrag, { once: true })
+  window.addEventListener('pointercancel', stopDrag, { once: true })
 }
 
 function onDrag(event: PointerEvent) {
   if (!dragging.value) return
+  event.preventDefault()
   const next = clampPosition({
     x: event.clientX - dragOffset.value.x,
     y: event.clientY - dragOffset.value.y,
@@ -192,6 +196,8 @@ function stopDrag() {
   dragging.value = false
   savePosition()
   window.removeEventListener('pointermove', onDrag)
+  window.removeEventListener('pointerup', stopDrag)
+  window.removeEventListener('pointercancel', stopDrag)
 }
 
 function toggleOpen() {
@@ -266,6 +272,8 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('pointermove', onDrag)
+  window.removeEventListener('pointerup', stopDrag)
+  window.removeEventListener('pointercancel', stopDrag)
 })
 </script>
 
@@ -295,6 +303,9 @@ onUnmounted(() => {
   color: #ffffff;
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.26);
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -319,6 +330,7 @@ onUnmounted(() => {
   position: absolute;
   width: min(380px, calc(100vw - 28px));
   height: min(540px, calc(100vh - 96px));
+  height: min(540px, calc(100dvh - 96px));
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
@@ -490,21 +502,15 @@ onUnmounted(() => {
 }
 
 @media (max-width: 640px) {
-  .floating-assistant {
-    left: auto !important;
-    right: 16px;
-    top: auto !important;
-    bottom: 16px;
-  }
-
   .floating-panel {
     position: fixed;
     left: 12px;
     right: 12px;
-    bottom: 84px;
+    bottom: max(84px, calc(68px + env(safe-area-inset-bottom)));
     top: auto;
     width: auto;
     height: min(620px, calc(100vh - 116px));
+    height: min(620px, calc(100dvh - 116px));
   }
 }
 </style>

@@ -1,12 +1,29 @@
 <template>
   <el-container class="console-shell">
-    <el-aside :class="['sidebar', { 'sidebar-collapsed': sidebarCollapsed }]" :width="sidebarWidth">
+    <el-aside
+      :class="[
+        'sidebar',
+        {
+          'sidebar-collapsed': sidebarCollapsed,
+          'mobile-sidebar-open': mobileMenuOpen,
+        },
+      ]"
+      :width="sidebarWidth"
+    >
       <div class="brand">
         <img class="brand-mark" src="@/assets/douyin-icon.svg" alt="抖音" />
         <div v-show="!sidebarCollapsed" class="brand-copy">
           <div class="brand-name">douyin-spark</div>
           <div class="brand-subtitle">浏览器控制台</div>
         </div>
+        <el-button
+          class="mobile-sidebar-close"
+          circle
+          aria-label="关闭导航"
+          @click="mobileMenuOpen = false"
+        >
+          <X :size="18" />
+        </el-button>
       </div>
 
       <div class="sidebar-tools">
@@ -21,7 +38,13 @@
         </el-button>
       </div>
 
-      <el-menu :collapse="sidebarCollapsed" :default-active="activeMenu" router class="side-menu">
+      <el-menu
+        :collapse="menuCollapsed"
+        :default-active="activeMenu"
+        router
+        class="side-menu"
+        @select="mobileMenuOpen = false"
+      >
         <el-menu-item index="/dashboard">
           <LayoutDashboard :size="18" />
           <span>仪表盘</span>
@@ -114,9 +137,27 @@
       </el-menu>
     </el-aside>
 
-    <el-container>
+    <button
+      v-if="mobileMenuOpen"
+      class="sidebar-backdrop"
+      type="button"
+      aria-label="关闭导航"
+      @click="mobileMenuOpen = false"
+    />
+
+    <el-container class="content-shell">
       <el-header class="topbar" height="64px">
-        <div class="topbar-title">控制台</div>
+        <div class="topbar-leading">
+          <el-button
+            class="mobile-menu-button"
+            circle
+            aria-label="打开导航"
+            @click="mobileMenuOpen = true"
+          >
+            <Menu :size="19" />
+          </el-button>
+          <div class="topbar-title">控制台</div>
+        </div>
         <div class="topbar-actions">
           <el-tooltip :content="isDarkMode ? '切换浅色模式' : '切换深色模式'">
             <el-button circle @click="toggleTheme">
@@ -139,8 +180,8 @@
           <el-dropdown trigger="click" @command="handleCommand">
             <el-button class="account-button">
               <CircleUserRound :size="18" />
-              <span>{{ auth.displayName }}</span>
-              <ChevronDown :size="16" />
+              <span class="account-name">{{ auth.displayName }}</span>
+              <ChevronDown class="account-chevron" :size="16" />
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
@@ -175,6 +216,7 @@ import {
   CircleUserRound,
   Gift,
   LayoutDashboard,
+  Menu,
   MessageSquareText,
   MonitorSmartphone,
   Moon,
@@ -182,6 +224,7 @@ import {
   ShieldCheck,
   Sun,
   Ticket,
+  X,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import AssistantAutoSendDialog from '@/components/AssistantAutoSendDialog.vue'
@@ -197,15 +240,22 @@ const auth = useAuthStore()
 const helpOpen = ref(false)
 const isDarkMode = ref(false)
 const sidebarCollapsed = ref(false)
+const mobileMenuOpen = ref(false)
+const isCompactLayout = ref(false)
 const hasUnread = ref(false)
 const unreadTimer = ref<number | null>(null)
 const unreadBusy = ref(false)
 const sidebarWidth = computed(() => (sidebarCollapsed.value ? '72px' : '236px'))
+const menuCollapsed = computed(() => sidebarCollapsed.value && !isCompactLayout.value)
+let compactMediaQuery: MediaQueryList | null = null
 
 onMounted(() => {
   const storedTheme = localStorage.getItem('douyin-spark-theme')
   isDarkMode.value = storedTheme !== 'light'
   sidebarCollapsed.value = localStorage.getItem('douyin-spark-sidebar') === 'collapsed'
+  compactMediaQuery = window.matchMedia('(max-width: 1100px)')
+  syncCompactLayout(compactMediaQuery)
+  compactMediaQuery.addEventListener('change', syncCompactLayout)
   applyTheme()
 })
 
@@ -216,6 +266,13 @@ watch(
     syncUnreadPolling()
   },
   { immediate: true },
+)
+
+watch(
+  () => route.path,
+  () => {
+    mobileMenuOpen.value = false
+  },
 )
 
 function userKey() {
@@ -291,6 +348,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopUnreadPolling()
+  compactMediaQuery?.removeEventListener('change', syncCompactLayout)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('douyin-spark:seen-updated', handleSeenUpdated)
 })
@@ -360,6 +418,11 @@ function toggleSidebar() {
   )
 }
 
+function syncCompactLayout(event: MediaQueryList | MediaQueryListEvent) {
+  isCompactLayout.value = event.matches
+  if (!event.matches) mobileMenuOpen.value = false
+}
+
 function applyTheme() {
   document.documentElement.classList.toggle('dark', isDarkMode.value)
 }
@@ -368,7 +431,12 @@ function applyTheme() {
 <style scoped>
 .console-shell {
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
+}
+
+.content-shell {
+  min-width: 0;
 }
 
 .sidebar {
@@ -403,6 +471,12 @@ function applyTheme() {
 
 .brand-copy {
   min-width: 0;
+}
+
+.mobile-sidebar-close,
+.mobile-menu-button,
+.sidebar-backdrop {
+  display: none;
 }
 
 .brand-name {
@@ -508,6 +582,13 @@ function applyTheme() {
   background: var(--app-surface);
 }
 
+.topbar-leading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
 .topbar-title {
   color: var(--app-text);
   font-weight: 700;
@@ -542,8 +623,136 @@ function applyTheme() {
 
 .main-area {
   height: calc(100vh - 64px);
+  height: calc(100dvh - 64px);
+  min-width: 0;
   padding: 22px;
   background: var(--app-bg);
   overflow: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 1100px) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 100;
+    width: min(86vw, 320px) !important;
+    max-width: 320px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 16px 0 36px rgba(15, 23, 42, 0.18);
+  }
+
+  .sidebar.mobile-sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar.sidebar-collapsed .brand {
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 18px;
+  }
+
+  .sidebar .brand-copy {
+    display: block !important;
+  }
+
+  .sidebar-tools {
+    display: none;
+  }
+
+  .sidebar .side-menu,
+  .sidebar .side-menu.el-menu--collapse {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .sidebar .side-menu :deep(.el-menu-item),
+  .sidebar .side-menu :deep(.el-sub-menu__title) {
+    justify-content: flex-start;
+    min-height: 44px;
+    padding: 0 20px !important;
+  }
+
+  .sidebar .side-menu :deep(.el-menu-item span),
+  .sidebar .side-menu :deep(.el-sub-menu__title span) {
+    display: inline-flex;
+    visibility: visible;
+  }
+
+  .sidebar .side-menu :deep(.admin-section-menu > .el-sub-menu__title) {
+    padding-left: 42px !important;
+  }
+
+  .sidebar .side-menu :deep(.admin-section-menu .admin-leaf-item) {
+    padding-left: 58px !important;
+  }
+
+  .mobile-sidebar-close {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.48);
+  }
+
+  .mobile-menu-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+
+  .topbar {
+    padding: 0 14px;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .main-area {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    padding: 0 10px;
+  }
+
+  .topbar-title {
+    font-size: 14px;
+  }
+
+  .topbar-actions {
+    gap: 4px;
+  }
+
+  .topbar-actions :deep(.el-button + .el-button) {
+    margin-left: 0;
+  }
+
+  .account-button {
+    width: 40px;
+    padding: 0;
+  }
+
+  .account-name,
+  .account-chevron {
+    display: none;
+  }
+
+  .main-area {
+    padding: 12px;
+  }
 }
 </style>

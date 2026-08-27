@@ -11,7 +11,9 @@
     <div class="content-panel">
       <div class="panel-body record-detail-body">
         <div class="detail-toolbar">
-          <el-segmented v-model="activeTab" :options="detailTabs" />
+          <div class="detail-tabs-control">
+            <el-segmented v-model="activeTab" :options="detailTabs" />
+          </div>
           <span class="detail-context">运行ID：{{ run?.id || runId }}</span>
         </div>
 
@@ -32,11 +34,11 @@
 
           <el-table
             v-else-if="activeTab === 'friends'"
+            class="target-table desktop-only"
             :data="friends"
             :loading="loadingCandidates"
-            height="calc(100vh - 280px)"
+            :height="targetTableHeight"
             empty-text="暂无本次发送好友"
-            class="target-table"
           >
             <el-table-column type="index" label="序号" width="82" />
             <el-table-column prop="display_name" label="好友备注/昵称" min-width="180" show-overflow-tooltip />
@@ -55,11 +57,11 @@
 
           <el-table
             v-else
+            class="target-table desktop-only"
             :data="groups"
             :loading="loadingCandidates"
-            height="calc(100vh - 280px)"
+            :height="targetTableHeight"
             empty-text="暂无本次发送群聊"
-            class="target-table"
           >
             <el-table-column type="index" label="序号" width="82" />
             <el-table-column prop="group_name" label="群名" min-width="220" show-overflow-tooltip />
@@ -75,6 +77,42 @@
               <template #default="{ row }">{{ failureReason(row) }}</template>
             </el-table-column>
           </el-table>
+
+          <div
+            v-if="activeTab === 'friends' || activeTab === 'groups'"
+            v-loading="loadingCandidates"
+            class="mobile-only mobile-card-list target-mobile-list"
+          >
+            <article
+              v-for="candidate in activeCandidates"
+              :key="candidate.id || candidateKey(candidate)"
+              class="mobile-data-card"
+            >
+              <div class="mobile-data-card__header">
+                <strong>{{ candidateTitle(candidate) }}</strong>
+                <el-tag :type="statusTag(candidate.send_status)">
+                  {{ statusText(candidate.send_status) }}
+                </el-tag>
+              </div>
+              <div class="mobile-data-card__body">
+                <div v-if="activeTab === 'friends'" class="mobile-data-row">
+                  <span>好友抖音号</span>
+                  <span>{{ friendDouyinText(candidate) }}</span>
+                </div>
+                <div v-else class="mobile-data-row">
+                  <span>群人数</span>
+                  <span>{{ groupMemberCountText(candidate) }}</span>
+                </div>
+                <div class="mobile-data-row">
+                  <span>失败原因</span>
+                  <span>{{ failureReason(candidate) }}</span>
+                </div>
+              </div>
+            </article>
+            <div v-if="!loadingCandidates && activeCandidates.length === 0" class="mobile-empty">
+              {{ activeTab === 'friends' ? '暂无本次发送好友' : '暂无本次发送群聊' }}
+            </div>
+          </div>
         </template>
       </div>
     </div>
@@ -82,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAdminSendRunCandidates, listAdminAccountRuns, listAdminSendRuns } from '@/api/adminDouyin'
@@ -127,6 +165,14 @@ const useAdminApi = computed(
   () => auth.isAdmin || isAdminGlobal.value || isAdminAccount.value,
 )
 const activeTab = ref<DetailTab>(initialTab())
+const compactTableLayout = ref(false)
+const activeCandidates = computed(() => activeTab.value === 'friends' ? friends.value : groups.value)
+const targetTableHeight = computed(() =>
+  compactTableLayout.value
+    ? 'clamp(250px, calc(100dvh - 170px), 460px)'
+    : 'calc(100dvh - 280px)',
+)
+let compactTableMedia: MediaQueryList | null = null
 
 function initialTab(): DetailTab {
   const tab = String(route.query.tab || '')
@@ -210,6 +256,16 @@ function groupMemberCountText(row: SendRunCandidate) {
   return '-'
 }
 
+function candidateTitle(row: SendRunCandidate) {
+  if (activeTab.value === 'friends') return row.display_name || friendDouyinText(row)
+  return row.group_name || '未命名群聊'
+}
+
+function candidateKey(row: SendRunCandidate) {
+  if (activeTab.value === 'friends') return `${row.display_name || ''}:${friendDouyinText(row)}`
+  return `${row.group_name || ''}:${groupMemberCountText(row)}`
+}
+
 function goBack() {
   if (isAdminGlobal.value) {
     void router.push('/admin/send-runs')
@@ -227,7 +283,18 @@ function goBack() {
 }
 
 onMounted(() => {
+  compactTableMedia = window.matchMedia('(max-width: 1100px), (max-height: 520px)')
+  compactTableLayout.value = compactTableMedia.matches
+  compactTableMedia.addEventListener('change', syncCompactTableLayout)
   void Promise.all([loadRun(), loadCandidates()])
+})
+
+function syncCompactTableLayout(event: MediaQueryListEvent) {
+  compactTableLayout.value = event.matches
+}
+
+onBeforeUnmount(() => {
+  compactTableMedia?.removeEventListener('change', syncCompactTableLayout)
 })
 </script>
 
@@ -235,6 +302,7 @@ onMounted(() => {
 .record-detail-body {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .detail-toolbar {
@@ -242,6 +310,11 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   min-height: 32px;
+  min-width: 0;
+}
+
+.detail-tabs-control {
+  min-width: 0;
 }
 
 .detail-context {
@@ -265,6 +338,10 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.target-mobile-list {
+  min-height: 120px;
+}
+
 @media (max-width: 640px) {
   .detail-toolbar {
     align-items: flex-start;
@@ -274,6 +351,22 @@ onMounted(() => {
 
   .detail-context {
     max-width: 100%;
+    width: 100%;
+  }
+
+  .detail-tabs-control,
+  .detail-tabs-control :deep(.el-segmented) {
+    width: 100%;
+  }
+
+  .detail-tabs-control :deep(.el-segmented__item) {
+    min-width: 0;
+  }
+
+  .detail-tabs-control :deep(.el-segmented__item-label) {
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
   }
 }
 </style>

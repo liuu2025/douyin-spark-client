@@ -412,6 +412,7 @@ async function submitResetPassword() {
 .login-page {
   display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
   place-items: center;
   padding: 28px;
   background:
@@ -543,6 +544,83 @@ async function submitResetPassword() {
 @media (max-width: 860px) {
   .login-panel {
     grid-template-columns: 1fr;
+    gap: 24px;
+    max-width: 520px;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-page {
+    align-items: start;
+    padding: 18px 12px;
+    overflow-y: auto;
+  }
+
+  .login-panel {
+    gap: 16px;
+  }
+
+  .login-copy {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
+
+  .login-logo {
+    width: 44px;
+    height: 44px;
+  }
+
+  .login-copy h1 {
+    margin: 0;
+    font-size: 24px;
+  }
+
+  .login-copy p {
+    grid-column: 1 / -1;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .auth-card {
+    padding: 18px 16px;
+  }
+
+  .code-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .code-row > .el-button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 680px) and (max-height: 520px) and (orientation: landscape) {
+  .login-page {
+    align-items: start;
+    padding: 16px 24px;
+    overflow-y: auto;
+  }
+
+  .login-panel {
+    grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.2fr);
+    gap: 24px;
+    max-width: 900px;
+  }
+
+  .login-copy h1 {
+    margin: 12px 0 8px;
+    font-size: 28px;
+  }
+
+  .login-copy p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .auth-card {
+    padding: 20px;
   }
 }
 </style>

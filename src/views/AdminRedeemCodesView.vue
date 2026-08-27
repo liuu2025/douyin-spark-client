@@ -31,10 +31,11 @@
           </div>
         </div>
         <el-table
+          class="desktop-only"
           :data="filteredCodes"
           :loading="loading"
           empty-text="暂无兑换码"
-          height="calc(100vh - 360px)"
+          height="clamp(250px, calc(100dvh - 300px), 620px)"
         >
           <el-table-column label="兑换码" min-width="190">
             <template #default="{ row }">
@@ -76,6 +77,30 @@
             </template>
           </el-table-column>
         </el-table>
+
+        <div v-loading="loading" class="mobile-only mobile-card-list">
+          <article v-for="code in filteredCodes" :key="codeId(code)" class="mobile-data-card">
+            <div class="mobile-data-card__header">
+              <strong>{{ code.code || code.masked_code || '-' }}</strong>
+              <el-tag :type="statusTag(code.status)">{{ statusText(code.status) }}</el-tag>
+            </div>
+            <div class="mobile-data-card__body">
+              <div class="mobile-data-row"><span>绑定账户ID</span><span>{{ assignedUserText(code) }}</span></div>
+              <div class="mobile-data-row"><span>类型</span><span>{{ codeTypeText(code) }}</span></div>
+              <div class="mobile-data-row"><span>天数</span><span>{{ code.days ?? '-' }}</span></div>
+              <div class="mobile-data-row">
+                <span>兑换到抖音号</span>
+                <span>{{ code.redeemed_douyin_id || code.douyin_id || '-' }}</span>
+              </div>
+              <div class="mobile-data-row"><span>兑换时间</span><span>{{ formatBeijingTime(code.redeemed_at) }}</span></div>
+            </div>
+            <div v-if="code.code || code.status === 'unused'" class="mobile-data-card__footer">
+              <el-button v-if="code.code" @click="copyOneCode(code)">复制</el-button>
+              <el-button v-if="code.status === 'unused'" type="danger" @click="disableCode(code)">禁用</el-button>
+            </div>
+          </article>
+          <div v-if="!loading && filteredCodes.length === 0" class="mobile-empty">暂无兑换码</div>
+        </div>
       </div>
     </div>
 
@@ -289,5 +314,20 @@ onMounted(loadCodes)
 
 .keyword-input {
   width: 260px;
+}
+
+@media (max-width: 640px) {
+  .toolbar-left,
+  .toolbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .filter-select,
+  .keyword-input,
+  .toolbar-actions .el-button {
+    width: 100%;
+  }
 }
 </style>

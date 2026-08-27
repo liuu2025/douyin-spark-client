@@ -39,7 +39,7 @@
             <el-button type="primary" @click="openCategoryDialog()">新增分类</el-button>
           </div>
           <div class="table-scroll">
-            <el-table :data="categories" v-loading="categoryLoading" height="100%">
+            <el-table class="desktop-only" :data="categories" v-loading="categoryLoading" height="100%">
               <el-table-column prop="name" label="分类名称" min-width="140" fixed="left" />
               <el-table-column prop="description" label="说明" min-width="220" />
               <el-table-column prop="sort_order" label="排序" width="90" />
@@ -59,6 +59,25 @@
                 </template>
               </el-table-column>
             </el-table>
+            <div v-loading="categoryLoading" class="mobile-only mobile-card-list">
+              <article v-for="category in categories" :key="category.id" class="mobile-data-card">
+                <div class="mobile-data-card__header">
+                  <strong>{{ category.name }}</strong>
+                  <el-tag :type="category.status === 'active' ? 'success' : 'info'">
+                    {{ categoryStatusText(category.status) }}
+                  </el-tag>
+                </div>
+                <div class="mobile-data-card__body">
+                  <div class="mobile-data-row"><span>说明</span><span>{{ category.description || '-' }}</span></div>
+                  <div class="mobile-data-row"><span>排序</span><span>{{ category.sort_order ?? '-' }}</span></div>
+                  <div class="mobile-data-row"><span>更新时间</span><span>{{ formatBeijingTime(category.updated_at) }}</span></div>
+                </div>
+                <div class="mobile-data-card__footer">
+                  <el-button type="primary" @click="openCategoryDialog(category)">编辑</el-button>
+                </div>
+              </article>
+              <div v-if="!categoryLoading && categories.length === 0" class="mobile-empty">暂无教程分类</div>
+            </div>
           </div>
         </div>
 
@@ -98,7 +117,7 @@
             <el-button type="primary" @click="openTutorialDialog()">新增教程</el-button>
           </div>
           <div class="table-scroll">
-            <el-table :data="tutorials" v-loading="tutorialLoading" height="100%">
+            <el-table class="desktop-only" :data="tutorials" v-loading="tutorialLoading" height="100%">
               <el-table-column prop="title" label="标题" min-width="180" fixed="left" />
               <el-table-column prop="category_name" label="分类" min-width="120" />
               <el-table-column prop="summary" label="摘要" min-width="220" />
@@ -123,6 +142,28 @@
                 </template>
               </el-table-column>
             </el-table>
+            <div v-loading="tutorialLoading" class="mobile-only mobile-card-list">
+              <article v-for="tutorial in tutorials" :key="tutorial.id" class="mobile-data-card">
+                <div class="mobile-data-card__header">
+                  <strong>{{ tutorial.title }}</strong>
+                  <el-tag :type="tutorialStatusTag(tutorial.status)">{{ tutorialStatusText(tutorial.status) }}</el-tag>
+                </div>
+                <div class="mobile-data-card__body">
+                  <div class="mobile-data-row"><span>分类</span><span>{{ tutorial.category_name || '-' }}</span></div>
+                  <div class="mobile-data-row"><span>摘要</span><span>{{ tutorial.summary || '-' }}</span></div>
+                  <div class="mobile-data-row"><span>关联页面</span><span>{{ (tutorial.page_keys || []).join(', ') || '-' }}</span></div>
+                  <div class="mobile-data-row"><span>排序</span><span>{{ tutorial.sort_order ?? '-' }}</span></div>
+                  <div class="mobile-data-row"><span>更新时间</span><span>{{ formatBeijingTime(tutorial.updated_at) }}</span></div>
+                </div>
+                <div class="mobile-data-card__footer tutorial-card-actions">
+                  <el-button @click="openTutorialDialog(tutorial)">编辑</el-button>
+                  <el-button v-if="tutorial.status !== 'published'" type="success" @click="publish(tutorial.id)">发布</el-button>
+                  <el-button v-if="tutorial.status !== 'hidden'" type="warning" @click="hide(tutorial.id)">隐藏</el-button>
+                  <el-button v-if="tutorial.status !== 'draft'" @click="draft(tutorial.id)">草稿</el-button>
+                </div>
+              </article>
+              <div v-if="!tutorialLoading && tutorials.length === 0" class="mobile-empty">暂无教程</div>
+            </div>
           </div>
           <div class="pagination-row">
             <el-pagination
@@ -1163,6 +1204,10 @@ function tutorialStatusTag(status?: string) {
   justify-content: flex-end;
 }
 
+.tutorial-card-actions {
+  flex-wrap: wrap;
+}
+
 @media (max-width: 900px) {
   .filter-row,
   .form-grid,
@@ -1173,6 +1218,48 @@ function tutorialStatusTag(status?: string) {
   .content-tools {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .tutorial-admin-panel,
+  .tutorial-admin-body {
+    height: auto;
+    overflow: visible;
+  }
+
+  .tutorial-admin-body,
+  .admin-section {
+    display: block;
+  }
+
+  .admin-section > * + * {
+    margin-top: 14px;
+  }
+
+  .table-scroll {
+    overflow: visible;
+    border: 0;
+  }
+
+  .usage-guide {
+    display: none;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .tutorial-admin-panel,
+  .tutorial-admin-body {
+    height: auto;
+    overflow: visible;
+  }
+
+  .usage-guide {
+    display: none;
+  }
+
+  .table-scroll {
+    height: clamp(250px, calc(100dvh - 170px), 360px);
   }
 }
 </style>

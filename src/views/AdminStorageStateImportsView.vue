@@ -103,11 +103,11 @@
           </div>
 
           <el-table
+            class="history-table desktop-only"
             :data="records"
             :loading="loadingRecords"
             empty-text="暂无导入记录"
-            height="420"
-            class="history-table"
+            height="clamp(250px, calc(100dvh - 330px), 520px)"
           >
             <el-table-column label="状态" width="100">
               <template #default="{ row }">
@@ -143,6 +143,25 @@
               <template #default="{ row }">{{ formatBeijingTime(row.created_at) }}</template>
             </el-table-column>
           </el-table>
+
+          <div v-loading="loadingRecords" class="mobile-only mobile-card-list">
+            <article v-for="record in records" :key="record.id" class="mobile-data-card">
+              <div class="mobile-data-card__header">
+                <strong>{{ record.detected_douyin_id || record.target_public_uid || '未识别' }}</strong>
+                <el-tag :type="statusTag(record.status)">{{ statusText(record.status) }}</el-tag>
+              </div>
+              <div class="mobile-data-card__body">
+                <div class="mobile-data-row"><span>结果</span><span>{{ resultText(record.result) }}</span></div>
+                <div class="mobile-data-row"><span>目标账户ID</span><span>{{ record.target_public_uid || '-' }}</span></div>
+                <div class="mobile-data-row"><span>原归属账户ID</span><span>{{ record.original_owner_public_uid || '-' }}</span></div>
+                <div class="mobile-data-row"><span>实际归属账户ID</span><span>{{ record.final_owner_public_uid || '-' }}</span></div>
+                <div class="mobile-data-row"><span>归属变化</span><span>{{ record.owner_changed ? '是' : '否' }}</span></div>
+                <div class="mobile-data-row"><span>错误</span><span>{{ record.last_error_message || record.last_error_code || '-' }}</span></div>
+                <div class="mobile-data-row"><span>记录时间</span><span>{{ formatBeijingTime(record.created_at) }}</span></div>
+              </div>
+            </article>
+            <div v-if="!loadingRecords && records.length === 0" class="mobile-empty">暂无导入记录</div>
+          </div>
 
           <div class="history-pagination">
             <el-pagination
@@ -361,6 +380,14 @@ onMounted(loadRecords)
 
   .history-header {
     display: grid;
+  }
+}
+
+@media (max-width: 640px) {
+  .history-filters,
+  .status-filter,
+  .text-filter {
+    width: 100%;
   }
 }
 </style>

@@ -23,7 +23,7 @@
           <el-button :loading="loading" @click="loadActivities(true)">刷新</el-button>
         </div>
 
-        <el-table :data="activities" v-loading="loading" height="560">
+        <el-table class="desktop-only" :data="activities" v-loading="loading" height="clamp(280px, calc(100dvh - 250px), 620px)">
           <el-table-column prop="title" label="活动标题" min-width="180" fixed="left" />
           <el-table-column prop="description" label="说明" min-width="240" />
           <el-table-column label="状态" width="100">
@@ -55,6 +55,32 @@
             </template>
           </el-table-column>
         </el-table>
+
+        <div v-loading="loading" class="mobile-only mobile-card-list">
+          <article v-for="activity in activities" :key="activity.id" class="mobile-data-card">
+            <div class="mobile-data-card__header">
+              <strong>{{ activity.title }}</strong>
+              <el-tag :type="activityStatusTag(activity.status)">{{ activityStatusText(activity.status) }}</el-tag>
+            </div>
+            <div class="mobile-data-card__body">
+              <div class="mobile-data-row"><span>说明</span><span>{{ activity.description || '-' }}</span></div>
+              <div class="mobile-data-row"><span>奖励天数</span><span>{{ activity.reward_days }}</span></div>
+              <div class="mobile-data-row"><span>库存</span><span>{{ activity.stock_total === 0 ? '不限量' : activity.stock_total }}</span></div>
+              <div class="mobile-data-row"><span>已领取</span><span>{{ activity.claimed_count }}</span></div>
+              <div class="mobile-data-row"><span>剩余</span><span>{{ activity.stock_total === 0 ? '不限量' : activity.remaining_count }}</span></div>
+              <div class="mobile-data-row"><span>开始时间</span><span>{{ formatTime(activity.starts_at) }}</span></div>
+              <div class="mobile-data-row"><span>结束时间</span><span>{{ formatTime(activity.ends_at) }}</span></div>
+            </div>
+            <div class="mobile-data-card__footer activity-card-actions">
+              <el-button @click="openDialog(activity)">编辑</el-button>
+              <el-button v-if="activity.status !== 'published'" type="success" @click="publish(activity.id)">发布</el-button>
+              <el-button v-if="activity.status === 'published'" type="warning" @click="pause(activity.id)">暂停</el-button>
+              <el-button v-if="activity.status !== 'ended'" type="danger" @click="end(activity.id)">结束</el-button>
+              <el-button @click="openClaims(activity)">领取记录</el-button>
+            </div>
+          </article>
+          <div v-if="!loading && activities.length === 0" class="mobile-empty">暂无活动</div>
+        </div>
       </div>
     </div>
 
@@ -115,7 +141,7 @@
         <strong>{{ selectedActivity.title }}</strong>
         <span>{{ selectedActivity.claimed_count || 0 }} 人已领取</span>
       </div>
-      <el-table :data="claims" v-loading="claimsLoading" height="620">
+      <el-table class="desktop-only" :data="claims" v-loading="claimsLoading" height="clamp(260px, calc(100dvh - 150px), 620px)">
         <el-table-column prop="public_uid" label="账户 ID" min-width="110" fixed="left">
           <template #default="{ row }">{{ row.public_uid || '-' }}</template>
         </el-table-column>
@@ -144,6 +170,23 @@
           <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
         </el-table-column>
       </el-table>
+      <div v-loading="claimsLoading" class="mobile-only mobile-card-list">
+        <article v-for="claim in claims" :key="claim.id" class="mobile-data-card">
+          <div class="mobile-data-card__header">
+            <strong>{{ claim.nickname || claim.public_uid || '-' }}</strong>
+            <span>{{ formatTime(claim.created_at) }}</span>
+          </div>
+          <div class="mobile-data-card__body">
+            <div class="mobile-data-row"><span>账户 ID</span><span>{{ claim.public_uid || '-' }}</span></div>
+            <div class="mobile-data-row"><span>兑换码</span><span>{{ claimCode(claim) }}</span></div>
+            <div class="mobile-data-row"><span>天数</span><span>{{ claim.redeem_code_days || claim.redeem_code?.days || '-' }}</span></div>
+          </div>
+          <div v-if="claimCode(claim) !== '-'" class="mobile-data-card__footer">
+            <el-button type="primary" @click="copyCode(claimCode(claim))">复制兑换码</el-button>
+          </div>
+        </article>
+        <div v-if="!claimsLoading && claims.length === 0" class="mobile-empty">暂无领取记录</div>
+      </div>
     </el-drawer>
   </section>
 </template>
@@ -380,10 +423,27 @@ function activityStatusTag(status?: string) {
   word-break: break-all;
 }
 
+.activity-card-actions {
+  flex-wrap: wrap;
+}
+
 @media (max-width: 860px) {
   .form-grid,
   .form-grid.two {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .filter-row,
+  .filter-row .el-select,
+  .filter-row .el-button {
+    width: 100%;
+  }
+
+  .filter-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

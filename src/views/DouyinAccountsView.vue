@@ -14,7 +14,12 @@
           <strong class="section-title">抖音号列表</strong>
           <el-button @click="loadAccounts">刷新</el-button>
         </div>
-        <el-table :data="accounts" :loading="loading" empty-text="还没有添加抖音号">
+        <el-table
+          class="desktop-only"
+          :data="accounts"
+          :loading="loading"
+          empty-text="还没有添加抖音号"
+        >
           <el-table-column prop="douyin_id" label="抖音号" min-width="160" />
           <el-table-column label="抖音昵称" min-width="160">
             <template #default="{ row }">{{ row.profile_nickname || '-' }}</template>
@@ -48,6 +53,43 @@
             </template>
           </el-table-column>
         </el-table>
+        <div v-loading="loading" class="mobile-only mobile-card-list">
+          <article v-for="account in accounts" :key="account.douyin_id" class="mobile-data-card">
+            <div class="mobile-data-card__header">
+              <strong>{{ account.profile_nickname || account.douyin_id }}</strong>
+              <el-tag :type="loginStateTag(account.login_state)">
+                {{ loginStateText(account.login_state) }}
+              </el-tag>
+            </div>
+            <div class="mobile-data-card__body">
+              <div class="mobile-data-row">
+                <span>抖音号</span>
+                <span>{{ account.douyin_id }}</span>
+              </div>
+              <div class="mobile-data-row">
+                <span>自动发送</span>
+                <span>
+                  <el-tag :type="enabledStatusTag(account.status)" size="small">
+                    {{ enabledStatusText(account.status) }}
+                  </el-tag>
+                </span>
+              </div>
+              <div class="mobile-data-row">
+                <span>轮询资格</span>
+                <span>{{ entitlementText(account) }}</span>
+              </div>
+            </div>
+            <div class="mobile-data-card__footer">
+              <el-button
+                type="primary"
+                @click="$router.push(`/douyin-accounts/${account.douyin_id}`)"
+              >
+                进入抖音号
+              </el-button>
+            </div>
+          </article>
+          <div v-if="!loading && accounts.length === 0" class="mobile-empty">还没有添加抖音号</div>
+        </div>
       </div>
     </div>
 

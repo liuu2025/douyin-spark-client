@@ -27,7 +27,7 @@
           </div>
         </div>
 
-        <el-table :data="users" v-loading="loading" height="560" @row-click="openDetail">
+        <el-table class="desktop-only" :data="users" v-loading="loading" height="clamp(280px, calc(100dvh - 290px), 620px)" @row-click="openDetail">
           <el-table-column prop="public_uid" label="账户 ID" min-width="110" fixed="left" />
           <el-table-column prop="nickname" label="昵称" min-width="130" />
           <el-table-column prop="qq_email" label="QQ 邮箱" min-width="180">
@@ -68,6 +68,36 @@
           </el-table-column>
         </el-table>
 
+        <div v-loading="loading" class="mobile-only mobile-card-list">
+          <article v-for="user in users" :key="user.id" class="mobile-data-card">
+            <div class="mobile-data-card__header">
+              <strong>{{ user.nickname || user.public_uid }}</strong>
+              <el-tag :type="user.status === 'active' ? 'success' : 'info'">{{ statusText(user.status) }}</el-tag>
+            </div>
+            <div class="mobile-data-card__body">
+              <div class="mobile-data-row"><span>账户 ID</span><span>{{ user.public_uid }}</span></div>
+              <div class="mobile-data-row"><span>QQ 邮箱</span><span>{{ user.qq_email || '-' }}</span></div>
+              <div class="mobile-data-row"><span>角色</span><span>{{ roleText(user.role) }}</span></div>
+              <div class="mobile-data-row"><span>抖音号</span><span>{{ user.douyin_account_count || 0 }}</span></div>
+              <div class="mobile-data-row"><span>发送任务</span><span>{{ user.send_task_count || 0 }}</span></div>
+              <div class="mobile-data-row"><span>兑换码</span><span>{{ user.redeem_code_count || 0 }}</span></div>
+              <div class="mobile-data-row"><span>创建时间</span><span>{{ formatBeijingTime(user.created_at) }}</span></div>
+            </div>
+            <div class="mobile-data-card__footer">
+              <el-button type="primary" @click="openDetail(user)">详情</el-button>
+              <el-button
+                v-if="canChangeStatus(user)"
+                :type="user.status === 'disabled' ? 'success' : 'danger'"
+                :loading="statusChangingUid === user.public_uid"
+                @click="changeUserStatus(user)"
+              >
+                {{ user.status === 'disabled' ? '启用' : '禁用' }}
+              </el-button>
+            </div>
+          </article>
+          <div v-if="!loading && users.length === 0" class="mobile-empty">暂无账户</div>
+        </div>
+
       </div>
     </div>
 
@@ -106,7 +136,7 @@
 
         <section class="detail-section">
           <h2>该账户管理的抖音号</h2>
-          <el-table :data="detail.douyin_accounts" height="300">
+          <el-table class="desktop-only" :data="detail.douyin_accounts" height="300">
             <el-table-column prop="douyin_id" label="抖音号" min-width="140" fixed="left" />
             <el-table-column label="状态" width="90">
               <template #default="{ row }">{{ statusText(row.status) }}</template>
@@ -137,11 +167,30 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="mobile-only mobile-card-list">
+            <article v-for="account in detail.douyin_accounts" :key="account.douyin_id" class="mobile-data-card">
+              <div class="mobile-data-card__header">
+                <strong>{{ account.douyin_id }}</strong>
+                <el-tag>{{ loginStateText(account.login_state) }}</el-tag>
+              </div>
+              <div class="mobile-data-card__body">
+                <div class="mobile-data-row"><span>状态</span><span>{{ statusText(account.status) }}</span></div>
+                <div class="mobile-data-row"><span>运行状态</span><span>{{ runnerStateText(account.runner_state) }}</span></div>
+                <div class="mobile-data-row"><span>自动加入新增轮次</span><span>{{ account.auto_apply_new_slots ? '已开启' : '未开启' }}</span></div>
+                <div class="mobile-data-row"><span>轮询资格</span><span>{{ entitlementStatusText(account.polling_entitlement_status) }}</span></div>
+                <div class="mobile-data-row"><span>资格有效期</span><span>{{ formatBeijingTime(account.polling_eligible_until) }}</span></div>
+              </div>
+              <div class="mobile-data-card__footer">
+                <el-button type="primary" @click="copyDouyinId(account.douyin_id)">复制抖音号</el-button>
+              </div>
+            </article>
+            <div v-if="detail.douyin_accounts.length === 0" class="mobile-empty">暂无抖音号</div>
+          </div>
         </section>
 
         <section class="detail-section">
           <h2>兑换码</h2>
-          <el-table :data="detail.redeem_codes" height="300">
+          <el-table class="desktop-only" :data="detail.redeem_codes" height="300">
             <el-table-column label="兑换码" min-width="160" fixed="left">
               <template #default="{ row }">{{ row.code || row.masked_code || '-' }}</template>
             </el-table-column>
@@ -163,6 +212,22 @@
               <template #default="{ row }">{{ formatBeijingTime(row.created_at) }}</template>
             </el-table-column>
           </el-table>
+          <div class="mobile-only mobile-card-list">
+            <article v-for="code in detail.redeem_codes" :key="code.id || code.code_id || code.masked_code" class="mobile-data-card">
+              <div class="mobile-data-card__header">
+                <strong>{{ code.code || code.masked_code || '-' }}</strong>
+                <el-tag>{{ redeemStatusText(code.status) }}</el-tag>
+              </div>
+              <div class="mobile-data-card__body">
+                <div class="mobile-data-row"><span>类型</span><span>{{ code.type || code.code_type || '-' }}</span></div>
+                <div class="mobile-data-row"><span>天数</span><span>{{ code.days ?? '-' }}</span></div>
+                <div class="mobile-data-row"><span>兑换到抖音号</span><span>{{ code.redeemed_douyin_id || '-' }}</span></div>
+                <div class="mobile-data-row"><span>兑换时间</span><span>{{ formatBeijingTime(code.redeemed_at) }}</span></div>
+                <div class="mobile-data-row"><span>创建时间</span><span>{{ formatBeijingTime(code.created_at) }}</span></div>
+              </div>
+            </article>
+            <div v-if="detail.redeem_codes.length === 0" class="mobile-empty">暂无兑换码</div>
+          </div>
         </section>
       </div>
       <div v-else v-loading="detailLoading" class="detail-loading" />
@@ -386,6 +451,17 @@ async function copyDouyinId(douyinId?: string) {
     min-width: 0;
     max-width: 96vw;
     width: 96vw !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .detail-section-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .detail-section-header .el-button {
+    width: 100%;
   }
 }
 </style>
