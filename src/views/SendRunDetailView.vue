@@ -1,9 +1,19 @@
 <template>
   <section>
     <div class="page-header">
-      <div>
-        <h1 class="page-title">运行记录详情</h1>
+      <div class="run-detail-heading">
+        <div class="run-detail-title-line">
+          <h1 class="page-title">运行记录详情</h1>
+          <span class="run-detail-title-separator" aria-hidden="true">·</span>
+          <span class="run-detail-account">
+            抖音号 <strong>{{ run?.douyin_id || douyinId || '-' }}</strong>
+          </span>
+        </div>
         <p class="page-subtitle">周期开始：{{ cycleStartText }}</p>
+        <p class="run-detail-id">
+          <span class="run-detail-meta-label">运行ID：</span>
+          <span class="run-detail-id-value">{{ run?.id || runId || '-' }}</span>
+        </p>
       </div>
       <el-button @click="goBack">返回运行记录</el-button>
     </div>
@@ -14,10 +24,17 @@
           <div class="detail-tabs-control">
             <el-segmented v-model="activeTab" :options="detailTabs" />
           </div>
-          <span class="detail-context">运行ID：{{ run?.id || runId }}</span>
+          <el-button
+            class="detail-refresh-button"
+            :icon="RefreshCw"
+            :loading="refreshing"
+            @click="refreshData"
+          >
+            刷新
+          </el-button>
         </div>
 
-        <el-skeleton v-if="loadingRun" :rows="5" animated />
+        <el-skeleton v-if="loadingRun && !run" :rows="5" animated />
         <el-empty v-else-if="!run" description="未找到这条运行记录" />
         <template v-else>
           <el-descriptions v-if="activeTab === 'run'" :column="1" border class="run-descriptions">
@@ -123,6 +140,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { RefreshCw } from 'lucide-vue-next'
 import { getAdminSendRunCandidates, listAdminAccountRuns, listAdminSendRuns } from '@/api/adminDouyin'
 import { errorText } from '@/api/http'
 import {
@@ -146,6 +164,7 @@ const friends = ref<SendRunCandidate[]>([])
 const groups = ref<SendRunCandidate[]>([])
 const loadingRun = ref(false)
 const loadingCandidates = ref(false)
+const refreshing = ref(false)
 const detailTabs = [
   { label: '运行详情', value: 'run' },
   { label: '本次发送好友列表', value: 'friends' },
@@ -228,6 +247,16 @@ async function loadCandidates() {
   }
 }
 
+async function refreshData() {
+  if (refreshing.value) return
+  refreshing.value = true
+  try {
+    await Promise.all([loadRun(), loadCandidates()])
+  } finally {
+    refreshing.value = false
+  }
+}
+
 function statusText(status?: string) {
   return runStatusText(status)
 }
@@ -299,6 +328,54 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.run-detail-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.run-detail-title-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.run-detail-title-separator {
+  color: var(--app-text-muted);
+  font-size: 18px;
+}
+
+.run-detail-account {
+  color: var(--app-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.run-detail-account strong {
+  color: var(--el-color-primary);
+  font-weight: 650;
+}
+
+.run-detail-id {
+  display: flex;
+  align-items: baseline;
+  margin: 2px 0 0;
+  color: var(--app-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.run-detail-meta-label {
+  flex: none;
+}
+
+.run-detail-id-value {
+  min-width: 0;
+  color: var(--app-text-secondary, var(--app-text-muted));
+  word-break: break-all;
+}
+
 .record-detail-body {
   display: grid;
   gap: 16px;
@@ -317,13 +394,8 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.detail-context {
-  max-width: 42%;
-  overflow: hidden;
-  color: var(--app-text-muted);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.detail-refresh-button {
+  flex: none;
 }
 
 .run-descriptions :deep(.el-descriptions__label) {
@@ -349,9 +421,8 @@ onBeforeUnmount(() => {
     gap: 10px;
   }
 
-  .detail-context {
-    max-width: 100%;
-    width: 100%;
+  .detail-refresh-button {
+    align-self: flex-end;
   }
 
   .detail-tabs-control,
