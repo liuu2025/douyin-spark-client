@@ -61,6 +61,23 @@
             <div v-else class="qr-placeholder">正在生成二维码</div>
           </div>
           <p v-if="qrError" class="qr-notice">二维码正在传输到前端，请不要关闭当前窗口。</p>
+          <el-button
+            v-if="showWakeButton"
+            class="wake-button"
+            type="primary"
+            plain
+            :loading="wakeLoading"
+            @click="wakeDouyin"
+          >
+            <Smartphone :size="16" />
+            唤醒抖音免扫码
+          </el-button>
+          <p v-if="showWakeButton" class="qr-notice">
+            使用手机上已登录的抖音 App 完成确认，无需第二台设备扫码。
+          </p>
+          <p v-if="showWeChatWakeTip" class="qr-notice">
+            微信内无法唤起抖音，请点击右上角菜单选择“在浏览器打开”后再使用免扫码登录。
+          </p>
         </div>
 
         <div v-if="showSMSForm" class="sms-section">
@@ -180,13 +197,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ExternalLink, Monitor, QrCode, RotateCw, Send } from 'lucide-vue-next'
+import { ExternalLink, Monitor, QrCode, RotateCw, Send, Smartphone } from 'lucide-vue-next'
 import {
   cancelLoginSession,
   confirmLoginSession,
   createLoginSession,
   getLoginQRCode,
   getLoginSession,
+  getLoginSessionQRLink,
   resendLoginSMSCode,
   submitLoginSMSCode,
 } from '@/api/loginSessions'
@@ -217,6 +235,8 @@ const polling = ref(false)
 const qrLoading = ref(false)
 const qrObjectURL = ref('')
 const qrError = ref('')
+const qrWakeLink = ref('')
+const wakeLoading = ref(false)
 const smsCode = ref('')
 const smsSubmitting = ref(false)
 const smsCodePending = ref(false)
@@ -323,6 +343,28 @@ const showQRCode = computed(() =>
   ['created', 'waiting_qr_scan'].includes(session.value?.status || ''),
 )
 
+// 唤端按钮只在手机浏览器里出现；桌面端保持纯扫码，二维码展示不受影响。
+const isMobileDevice = computed(() => {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  const uaMobile = /Android|iPhone|iPod|Mobile/i.test(ua)
+  const iPadLike = /iPad/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
+  return uaMobile || iPadLike
+})
+
+const inWeChatBrowser = computed(() => {
+  if (typeof navigator === 'undefined') return false
+  return /MicroMessenger/i.test(navigator.userAgent || '')
+})
+
+const showWakeButton = computed(
+  () => loginMode.value === 'qr_sms' && showQRCode.value && isMobileDevice.value && !inWeChatBrowser.value,
+)
+
+const showWeChatWakeTip = computed(
+  () => loginMode.value === 'qr_sms' && showQRCode.value && isMobileDevice.value && inWeChatBrowser.value,
+)
+
 const showSMSForm = computed(() =>
   ['waiting_sms_code', 'sms_code_invalid', 'sms_code_expired', 'sms_retry_later'].includes(
     session.value?.status || '',
@@ -421,10 +463,68 @@ async function refreshQRCode(current: LoginSession) {
     revokeQRCode()
     qrObjectURL.value = URL.createObjectURL(blob)
     lastQRImageURL = imageURL
+    // 二维码刷新意味着旧 token 作废，唤端链接跟随当前二维码一起更新。
+    void refreshWakeLink(current.id)
   } catch (error) {
     qrError.value = errorText(error)
   } finally {
     qrLoading.value = false
+  }
+}
+
+async function refreshWakeLink(sessionId: string) {
+  try {
+    qrWakeLink.value = await getLoginSessionQRLink(sessionId)
+  } catch {
+    // 解码失败时隐藏唤端能力，扫码登录不受影响。
+    qrWakeLink.value = ''
+  }
+}
+
+const isAndroidDevice = computed(() => {
+  if (typeof navigator === 'undefined') return false
+  return /Android/i.test(navigator.userAgent || '')
+})
+
+// 安卓上直接跳转 https 唤端链接只会打开网页（api.amemv.com 等域名没有部署
+// App Links 验证文件，系统不会把链接交给抖音），必须包装成安卓标准的
+// intent:// 格式，浏览器才会弹“打开抖音”确认框并把链接递给抖音 App。
+// 注意：Chromium 内核对 http/https 协议的 intent，缺 package= 时会静默忽略
+// 本次导航（点了没反应），因此必须显式指定抖音主版包名；
+// 未安装抖音时浏览器按 browser_fallback_url 回退到原链接的网页。
+function toWakeHref(link: string): string {
+  if (!isAndroidDevice.value) return link
+  const withoutScheme = link.replace(/^https:\/\//i, '')
+  return `intent://${withoutScheme}#Intent;scheme=https;package=com.ss.android.ugc.aweme;S.browser_fallback_url=${encodeURIComponent(link)};end`
+}
+
+async function wakeDouyin() {
+  if (!session.value || wakeLoading.value) return
+  wakeLoading.value = true
+  try {
+    const link = qrWakeLink.value || (await getLoginSessionQRLink(session.value.id))
+    if (!link) {
+      ElMessage.warning('暂时无法获取唤端链接，请稍后重试或直接扫码登录。')
+      return
+    }
+    qrWakeLink.value = link
+    const target = toWakeHref(link)
+    if (isAndroidDevice.value) {
+      // 跳转后由系统/浏览器弹出“打开抖音”确认框；未安装抖音时回退到网页。
+      window.location.href = target
+    } else {
+      // iOS 的 Universal Link 需要真实锚点点击才会生效，JS 跳转会被 Safari 当普通导航。
+      const anchor = document.createElement('a')
+      anchor.href = target
+      anchor.style.display = 'none'
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+    }
+  } catch (error) {
+    ElMessage.error(errorText(error))
+  } finally {
+    wakeLoading.value = false
   }
 }
 
@@ -531,6 +631,7 @@ function revokeQRCode() {
   if (qrObjectURL.value) URL.revokeObjectURL(qrObjectURL.value)
   qrObjectURL.value = ''
   lastQRImageURL = ''
+  qrWakeLink.value = ''
 }
 
 function handleClose() {
@@ -656,6 +757,10 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--app-text-muted);
   font-size: 13px;
+}
+
+.wake-button {
+  width: min(100%, 340px);
 }
 
 .sms-section {

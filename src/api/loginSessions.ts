@@ -41,3 +41,11 @@ export async function getLoginQRCode(imageURL: string) {
   const { data } = await http.get<Blob>(path, { responseType: 'blob' })
   return data
 }
+
+// 读取当前登录二维码反解出的抖音官方唤端链接（内含一次性扫码 token）。
+// 手机浏览器访问该链接可唤起抖音 App 直达登录确认页；解码失败时后端返回
+// qr_link_unavailable，前端应隐藏“唤醒抖音免扫码”按钮并回退为普通扫码。
+export async function getLoginSessionQRLink(id: string) {
+  const { data } = await http.get<{ qr_link: string }>(`/login-sessions/${id}/qr-link`)
+  return data.qr_link
+}
