@@ -177,5 +177,10 @@ export async function getAdminSendRunCandidates(runId: string) {
   return {
     friends: data.friends || [],
     groups: data.groups || [],
+    following_total: data.following_total,
+    scanned_count: data.scanned_count,
+    coverage_percent: data.coverage_percent,
+    scan_status: data.scan_status,
+    scan_stop_reason: data.scan_stop_reason,
   }
 }

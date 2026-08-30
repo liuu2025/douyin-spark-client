@@ -49,8 +49,28 @@
             <el-descriptions-item label="最近错误">{{ run.last_error_message || '-' }}</el-descriptions-item>
           </el-descriptions>
 
+          <div v-if="activeTab === 'friends' && scanSummaryVisible" class="following-scan-summary" aria-live="polite">
+            <div class="following-scan-summary__line">
+              {{ scanStatusLabel }}（已扫条数/关注总数）：{{ scannedCountText }}/{{ followingTotalText }}
+            </div>
+            <div class="following-scan-summary__line">
+              扫描覆盖率：{{ coverageText }}
+            </div>
+            <div class="following-scan-summary__line">
+              当前已匹配好友：{{ friends.length }}
+            </div>
+          </div>
+          <div
+            v-else-if="activeTab === 'friends' && scanSummaryUnavailable"
+            class="following-scan-summary following-scan-summary--unavailable"
+            aria-live="polite"
+          >
+            <div class="following-scan-summary__line">本次运行没有可用的好友扫描统计</div>
+            <div class="following-scan-summary__line">当前已匹配好友：{{ friends.length }}</div>
+          </div>
+
           <el-table
-            v-else-if="activeTab === 'friends'"
+            v-if="activeTab === 'friends'"
             class="target-table desktop-only"
             :data="friends"
             :loading="loadingCandidates"
@@ -73,7 +93,7 @@
           </el-table>
 
           <el-table
-            v-else
+            v-if="activeTab === 'groups'"
             class="target-table desktop-only"
             :data="groups"
             :loading="loadingCandidates"
@@ -146,6 +166,7 @@ import { errorText } from '@/api/http'
 import {
   getSendRunCandidates,
   listAccountRuns,
+  type SendRunCandidates,
   type SendRunCandidate,
   type SendRunQuery,
 } from '@/api/sendTasks'
@@ -162,6 +183,7 @@ const auth = useAuthStore()
 const run = ref<SendRun | null>(null)
 const friends = ref<SendRunCandidate[]>([])
 const groups = ref<SendRunCandidate[]>([])
+const scanSummary = ref<Pick<SendRunCandidates, 'following_total' | 'scanned_count' | 'coverage_percent' | 'scan_status' | 'scan_stop_reason'>>({})
 const loadingRun = ref(false)
 const loadingCandidates = ref(false)
 const refreshing = ref(false)
@@ -192,6 +214,7 @@ const targetTableHeight = computed(() =>
     : 'calc(100dvh - 280px)',
 )
 let compactTableMedia: MediaQueryList | null = null
+let scanPollTimer: number | null = null
 
 function initialTab(): DetailTab {
   const tab = String(route.query.tab || '')
@@ -233,6 +256,7 @@ async function loadRun() {
 }
 
 async function loadCandidates() {
+	if (loadingCandidates.value) return
   loadingCandidates.value = true
   try {
     const data = useAdminApi.value
@@ -240,11 +264,68 @@ async function loadCandidates() {
       : await getSendRunCandidates(runId.value)
     friends.value = data.friends
     groups.value = data.groups
+    scanSummary.value = {
+      following_total: data.following_total,
+      scanned_count: data.scanned_count,
+      coverage_percent: data.coverage_percent,
+      scan_status: data.scan_status,
+      scan_stop_reason: data.scan_stop_reason,
+    }
+    if (data.scan_status === 'running') startScanPolling()
+    else stopScanPolling()
   } catch (error) {
     ElMessage.error(errorText(error))
   } finally {
     loadingCandidates.value = false
   }
+}
+
+const scanSummaryVisible = computed(() =>
+  activeTab.value === 'friends' &&
+  scanSummary.value.scan_status !== undefined,
+)
+
+const scanSummaryUnavailable = computed(() =>
+  activeTab.value === 'friends' &&
+  !loadingCandidates.value &&
+  scanSummary.value.scan_status === undefined,
+)
+
+const scannedCountText = computed(() =>
+  typeof scanSummary.value.scanned_count === 'number' ? String(scanSummary.value.scanned_count) : '0',
+)
+
+const followingTotalText = computed(() =>
+  typeof scanSummary.value.following_total === 'number' ? String(scanSummary.value.following_total) : '-',
+)
+
+const coverageText = computed(() => {
+  if (typeof scanSummary.value.coverage_percent !== 'number') return '-'
+  return `${scanSummary.value.coverage_percent.toFixed(2).replace(/\.00$/, '')}%`
+})
+
+const scanStatusLabel = computed(() => {
+  switch (scanSummary.value.scan_status) {
+    case 'running': return '正在扫描'
+			case 'complete': return '扫描完成'
+			case 'incomplete':
+			case 'timeout':
+			case 'recovery_failed': return '扫描不完整（未发送好友）'
+    default: return '扫描状态'
+  }
+})
+
+function startScanPolling() {
+  if (scanPollTimer !== null) return
+  scanPollTimer = window.setInterval(() => {
+    void loadCandidates()
+  }, 3000)
+}
+
+function stopScanPolling() {
+  if (scanPollTimer === null) return
+  window.clearInterval(scanPollTimer)
+  scanPollTimer = null
 }
 
 async function refreshData() {
@@ -323,6 +404,7 @@ function syncCompactTableLayout(event: MediaQueryListEvent) {
 }
 
 onBeforeUnmount(() => {
+  stopScanPolling()
   compactTableMedia?.removeEventListener('change', syncCompactTableLayout)
 })
 </script>
@@ -398,6 +480,23 @@ onBeforeUnmount(() => {
   flex: none;
 }
 
+.following-scan-summary {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border, #dcdfe6);
+  border-radius: 6px;
+  background: var(--app-surface-muted, #f7f8fa);
+  color: var(--app-text-secondary, #606266);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.following-scan-summary__line {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .run-descriptions :deep(.el-descriptions__label) {
   width: 120px;
 }
@@ -415,6 +514,12 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
+  .target-mobile-list {
+    max-height: calc(100dvh - 260px);
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
   .detail-toolbar {
     align-items: flex-start;
     flex-direction: column;

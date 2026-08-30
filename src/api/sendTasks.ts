@@ -61,6 +61,11 @@ export interface SendRunCandidate {
 export interface SendRunCandidates {
   friends: SendRunCandidate[]
   groups: SendRunCandidate[]
+  following_total?: number
+  scanned_count?: number
+  coverage_percent?: number
+  scan_status?: 'running' | 'complete' | 'incomplete' | 'timeout' | 'recovery_failed' | string
+  scan_stop_reason?: string
 }
 
 function pickRunList(data: unknown, fallbackPageSize: number): SendRunList {
@@ -133,6 +138,11 @@ export async function getSendRunCandidates(runId: string) {
   return {
     friends: data.friends || [],
     groups: data.groups || [],
+    following_total: data.following_total,
+    scanned_count: data.scanned_count,
+    coverage_percent: data.coverage_percent,
+    scan_status: data.scan_status,
+    scan_stop_reason: data.scan_stop_reason,
   }
 }
 
