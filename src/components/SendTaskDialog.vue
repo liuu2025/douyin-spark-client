@@ -109,7 +109,6 @@
                   />
                   <div class="target-help">
                     <p><strong>包含任意一个关键词：</strong>群名只要包含其中任意一个关键词就会匹配。</p>
-                    <p><strong>同时包含全部关键词：</strong>群名需要包含填写的所有关键词才会匹配。</p>
                   </div>
                   <el-input
                     v-model.trim="targetForm.groupKeywordsText"
@@ -220,7 +219,6 @@ const friendModeOptions = [
 ]
 const groupModeOptions = [
   { label: '包含任意一个关键词', value: 'contains' },
-  { label: '同时包含全部关键词', value: 'contains_all' },
 ]
 const props = defineProps<{
   modelValue: boolean

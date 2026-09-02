@@ -47,6 +47,7 @@ export function runStatusText(status?: string) {
     sending: '发送中',
     running: '运行中',
     sent: '已发送',
+    uncertain: '待确认',
     partial_success: '部分成功',
     skipped: '已跳过',
     failed: '失败',

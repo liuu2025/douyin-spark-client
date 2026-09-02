@@ -53,7 +53,7 @@
           <MonitorSmartphone :size="18" />
           <span>抖音号</span>
         </el-menu-item>
-          <el-menu-item index="/messages">
+          <el-menu-item v-if="false" index="/messages">
             <span class="menu-item-with-badge">
               <MessageSquareText :size="18" />
               <span>消息中心</span>
@@ -121,11 +121,12 @@
             popper-class="admin-menu-popper"
           >
             <template #title>内容与运营</template>
-            <el-menu-item class="admin-leaf-item" index="/admin/notices">通知发布</el-menu-item>
+            <el-menu-item v-if="false" class="admin-leaf-item" index="/admin/notices">通知发布</el-menu-item>
             <el-menu-item class="admin-leaf-item" index="/admin/activities">活动管理</el-menu-item>
             <el-menu-item class="admin-leaf-item" index="/admin/tutorials">教程管理</el-menu-item>
           </el-sub-menu>
           <el-sub-menu
+            v-if="false"
             index="admin-support"
             class="admin-section-menu"
             popper-class="admin-menu-popper"
@@ -170,7 +171,7 @@
               <CircleHelp :size="18" />
             </el-button>
           </el-tooltip>
-          <el-tooltip content="消息中心">
+          <el-tooltip v-if="false" content="消息中心">
             <el-badge :hidden="!hasUnread" is-dot class="topbar-badge">
               <el-button circle @click="$router.push('/messages')">
                 <Bell :size="18" />

@@ -307,10 +307,10 @@ const coverageText = computed(() => {
 const scanStatusLabel = computed(() => {
   switch (scanSummary.value.scan_status) {
     case 'running': return '正在扫描'
-			case 'complete': return '扫描完成'
-			case 'incomplete':
-			case 'timeout':
-			case 'recovery_failed': return '扫描不完整（未发送好友）'
+    case 'complete': return '扫描完成'
+    case 'incomplete': return '扫描未完整结束'
+    case 'timeout': return '扫描超时，已提前结束（已匹配目标继续发送）'
+    case 'recovery_failed': return '扫描失败（好友列表未能恢复）'
     default: return '扫描状态'
   }
 })
@@ -346,6 +346,7 @@ function statusTag(status?: string) {
   if (status === 'sent') return 'success'
   if (status === 'partial_success') return 'warning'
   if (status === 'failed') return 'danger'
+  if (status === 'uncertain') return 'warning'
   if (status === 'skipped') return 'info'
   return 'primary'
 }
@@ -356,7 +357,8 @@ function failureReason(row: SendRunCandidate) {
 
 function friendDouyinText(row: SendRunCandidate) {
   if (row.douyin_id) return row.douyin_id
-  if (row.douyin_id_status === 'failed') return '读取失败'
+  if (row.douyin_id_status === 'not_required') return '本次发送无需读取'
+  if (row.douyin_id_status === 'read_failed' || row.douyin_id_status === 'failed') return '读取失败'
   return '未读取'
 }
 
