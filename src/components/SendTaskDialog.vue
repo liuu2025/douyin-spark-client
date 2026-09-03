@@ -101,6 +101,7 @@
                   <el-checkbox v-model="targetForm.groupEnabled">发送到群聊</el-checkbox>
                   <div class="target-help">
                     <p><strong>匹配群聊名称关键词：</strong>多个关键词用空格隔开。不建议填入特殊符号。</p>
+                    <p><strong>匹配范围：</strong>仅匹配抖音私信列表中已置顶的群聊，未置顶群聊不会参与匹配。</p>
                   </div>
                   <el-segmented
                     v-model="targetForm.groupMode"

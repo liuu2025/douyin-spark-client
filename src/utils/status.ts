@@ -7,7 +7,7 @@ export function loginStateText(state?: LoginState | string) {
     not_logged_in: '已失效',
     missing_storage_state: '登录文件缺失',
     identity_mismatch: '账号不匹配',
-    check_failed: '验证失败',
+    check_failed: '未验证',
     transferred: '已转移',
   }
   return state ? map[state] ?? state : '未验证'
@@ -16,7 +16,6 @@ export function loginStateText(state?: LoginState | string) {
 export function loginStateTag(state?: LoginState | string) {
   if (state === 'ok') return 'success'
   if (state === 'not_checked' || !state) return 'info'
-  if (state === 'check_failed') return 'warning'
   return 'danger'
 }
 

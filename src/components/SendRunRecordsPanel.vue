@@ -633,6 +633,8 @@ function errorCodeText(code?: string) {
     login_state_not_ok: '登录状态不可用',
     logger_error: '运行日志初始化失败',
     message_entry_not_found: '私信入口未找到',
+    friend_profile_open_failed: '好友主页打开失败',
+    profile_message_entry_not_found: '主页私信入口未找到',
     missing_storage_state: '登录文件缺失',
     navigation_failed: '打开抖音页面失败',
     not_logged_in: '登录态已失效',

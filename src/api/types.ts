@@ -27,7 +27,6 @@ export type LoginState =
   | 'not_logged_in'
   | 'missing_storage_state'
   | 'identity_mismatch'
-  | 'check_failed'
   | 'transferred'
 
 export type LoginMode = 'qr_sms' | 'remote_browser'
